@@ -1,1 +1,1 @@
-"""Data tools for Zenith Wrangler."""
+"""Data tools for Signal."""

@@ -175,7 +175,7 @@ def _heuristic_analysis(df: pd.DataFrame, description: str | None) -> AnalysisRe
 
     filters = [column for column in categorical_cols if df[column].nunique(dropna=True) <= 50][:2]
     design = DashboardSpec(
-        title="Zenith Wrangler Dashboard",
+        title="Signal Dashboard",
         layout="grid",
         visuals=visuals,
         filters=filters,

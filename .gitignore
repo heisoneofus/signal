@@ -2,6 +2,9 @@
 .pytest_cache/
 .venv/
 __pycache__/
+frontend/node_modules/
+frontend/dist/
+node_modules/
 *.py[cod]
 *.pyo
 *.pyd
@@ -9,9 +12,12 @@ __pycache__/
 
 logs/
 outputs/
+.vercel_python_packages/
 
 uv.lock
 *.csv
 .git/
 .DS_Store
 Thumbs.db
+.vercel
+.env*.local

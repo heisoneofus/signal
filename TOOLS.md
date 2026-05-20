@@ -1,6 +1,6 @@
 # TOOLS
 
-This document describes the orchestrator tool catalog used by `zenith-wrangler`.
+This document describes the orchestrator tool catalog used by `signal`.
 
 ## `read_csv`
 - **Name:** `read_csv`

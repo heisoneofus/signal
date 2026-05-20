@@ -1,1 +1,1 @@
-"""Zenith Wrangler package."""
+"""Signal package."""

@@ -1,6 +1,6 @@
 # SKILLS
 
-Reusable orchestration patterns for `zenith-wrangler`.
+Reusable orchestration patterns for `signal`.
 
 ## Skill: Basic Tabular KPI Dashboard
 - **Problem shape:** Flat business table with core measures (`revenue`, `orders`, `margin`) and 1-3 dimensions.

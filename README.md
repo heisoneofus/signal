@@ -1,142 +1,146 @@
-# Zenith Wrangler
+# Signal
 
-Turn raw datasets into working dashboards automatically.
+Signal now supports two local workflows on top of the same Python analysis core:
 
-Zenith Wrangler takes a dataset, understands its structure, and builds a dashboard on the fly using LLM-assisted logic or heuristic fallback. No manual chart wiring, no predefined schemas.
+- `signal_cli.py` / `uv run signal` for the legacy CLI + Dash experience
+- `backend/` + `frontend/` for a FastAPI + React + Plotly web stack
 
-It’s built for fast exploration when you don’t want to spend time shaping data manually.
+The analyzer, orchestrator, patcher, tool registry, and session logging system are still the source of truth. The new web app wraps those pieces instead of rewriting them.
 
----
+## Stack
 
-## What it does
+- Backend: FastAPI, Pydantic, Plotly JSON responses
+- Frontend: Vite, React, React Router, `react-plotly.js`
+- Core analytics: pandas, Plotly, existing `src/` agents/tools/session artifacts
 
-- Reads a dataset (CSV for now)
-- Infers structure and relationships
-- Uses LLM or heuristics to plan visualizations
-- Launches a local Dash app with generated charts
+## Quick Start
 
-You give it data. It gives you a dashboard.
-
----
-
-## 5-minute quick start (no API key required)
-
-This is the easiest way to verify everything works.
-
-### 1. Requirements
+### Requirements
 
 - Python 3.11+
-- [uv](https://github.com/astral-sh/uv) installed
+- Node.js 18+
+- [uv](https://github.com/astral-sh/uv)
 
-If you don’t have `uv`:
-
-```bash
-pip install uv
-```
-
----
-
-### 2. Install & run
+### Install Python Dependencies
 
 ```bash
-git clone https://github.com/heisoneofus/zenith-wrangler.git
-cd zenith-wrangler
-
-uv sync
-uv run zenith-wrangler --data sample_data/sample.csv
+uv sync --extra dev
 ```
 
-Then open:
-
-```
-http://localhost:8050
-```
-
-You should see a generated dashboard.
-
----
-
-## Using your own data
+### Install Frontend Dependencies
 
 ```bash
-uv run zenith-wrangler --data your_file.csv
+cd frontend
+npm install
+cd ..
 ```
 
-Optional context file:
+## Run The New Web App
+
+### Start The FastAPI Backend
 
 ```bash
-uv run zenith-wrangler \
-  --data your_file.csv \
-  --context description.md
+uv run uvicorn backend.main:app --reload
 ```
 
----
+Backend default URL:
 
-## Using LLM mode (optional)
+```text
+http://127.0.0.1:8000
+```
 
-If you want smarter chart planning:
+### Start The React Frontend
 
 ```bash
-uv run zenith-wrangler \
-  --data your_file.csv \
-  --llm-api-key YOUR_KEY
+cd frontend
+npm run dev
 ```
 
-Without a key, the app falls back to heuristic mode.
+Frontend default URL:
 
----
-
-## Project structure
-
-```
-src/
-  core/        # data processing + orchestration
-  planning/    # LLM / heuristic logic
-  dashboard/   # Dash app generation
-  config.py    # runtime config
-
-sample_data/   # example inputs
-tests/         # sanity checks
+```text
+http://127.0.0.1:5173
 ```
 
----
+## Web Features
 
-## Known limitations
+- `POST /analyze` uploads a dataset and returns analysis + dashboard spec
+- `POST /generate` runs the full pipeline and returns dashboard spec + Plotly figures
+- `POST /update` applies an update prompt to an existing session
+- `GET /sessions` lists prior runs from the persisted session artifacts
+- `GET /sessions/{id}` returns session metadata, analysis, spec, figures, and artifact links
+- `GET /artifacts/{id}/{type}` streams stored log/spec/trace/source/context/figure/parquet artifacts
 
-- CSV only (for now)
-- Works best on clean, tabular data
-- Large datasets may slow down dashboard generation
-- LLM mode depends on API reliability
+The React app includes:
 
----
+- `Run` page for upload + analyze/generate
+- `Results` page for schema, analysis summary, and Plotly chart rendering
+- `Sessions` page for browsing previous runs
+- `Update` page for prompt-based dashboard revisions
 
-## Running tests
+## CLI Workflow
+
+The CLI is still available and now routes execution through the shared application service layer.
+
+### Standard Run
 
 ```bash
-pytest
+uv run signal --data sample_data/sample.csv
 ```
 
----
+### Review Only
 
-## Why this exists
+```bash
+uv run signal --data sample_data/sample.csv --review-only --output-format html
+```
 
-Most dashboards are built manually even when the data is already structured.
+### Update A Prior Session
 
-Zenith Wrangler flips that:
-- infer first
-- build second
-- refine later
+```bash
+uv run signal \
+  --update \
+  --session logs/session_20260404_010101.log \
+  --prompt "Change the first chart to a scatter plot and add a region filter"
+```
 
----
+## Project Structure
 
-## Roadmap
+```text
+backend/      FastAPI app, API contracts, error handling
+frontend/     Vite React app
+src/          analyzer, orchestrator, tools, session logging, shared services
+tests/        Python unit + integration coverage
+sample_data/  example datasets
+```
 
-- Better dataset profiling
-- More chart types
-- Smarter LLM planning
-- Support for more formats (Parquet, DBs)
+## Testing
 
----
+### Python
+
+```bash
+uv run pytest -q
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm test
+```
+
+### Frontend Production Build
+
+```bash
+cd frontend
+npm run build
+```
+
+## Notes
+
+- Session logs still live under `logs/`
+- Generated artifacts still live under `outputs/`
+- The backend persists uploaded source files, context text, dashboard spec JSON, Plotly figure JSON, and transformed parquet artifacts for later session replay
+- The API intentionally keeps business logic out of routes; the core execution lives in `ApplicationService`
 
 ## License
 

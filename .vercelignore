@@ -1,0 +1,21 @@
+.git
+.idea
+.pytest_cache
+.venv
+__pycache__
+build
+dist
+frontend/node_modules
+frontend/dist
+logs
+outputs
+pyproject.toml
+sample_data
+tests
+uv.lock
+signal_cli.py
+signal.egg-info
+*.pyc
+*.pyo
+*.pyd
+The string is missing the terminator*

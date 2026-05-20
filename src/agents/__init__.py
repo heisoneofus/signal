@@ -1,1 +1,1 @@
-"""LLM-driven agents for Zenith Wrangler."""
+"""LLM-driven agents for Signal."""

@@ -1,10 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ResultsPage } from "./pages/ResultsPage";
-import { RunPage } from "./pages/RunPage";
+import { ProcessingPanel, RunPage } from "./pages/RunPage";
 import { SessionsPage } from "./pages/SessionsPage";
 import { UpdatePage } from "./pages/UpdatePage";
 
@@ -53,6 +53,27 @@ describe("frontend pages", () => {
     expect(navigateMock).toHaveBeenCalledWith("/results/session_123");
   });
 
+  it("updates the processing screen while generation is running", async () => {
+    vi.useFakeTimers();
+
+    try {
+      render(<ProcessingPanel />);
+
+      expect(screen.getByRole("heading", { name: /architecting your dashboard/i })).toBeInTheDocument();
+      expect(screen.getByText(/this may take a minute or two/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/current processing step/i)).toHaveTextContent(/uploading dataset/i);
+
+      await act(async () => {
+        vi.advanceTimersByTime(1900);
+      });
+
+      expect(screen.getByLabelText(/current processing step/i)).toHaveTextContent(/reading columns/i);
+      expect(screen.getByText(/\[DAT\]/i)).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("renders results page details and plotly figures", async () => {
     global.fetch.mockResolvedValueOnce({
       ok: true,
@@ -85,7 +106,7 @@ describe("frontend pages", () => {
     expect(await screen.findByText(/sales overview/i)).toBeInTheDocument();
     expect(screen.getByText(/primary metrics/i)).toBeInTheDocument();
     expect(screen.getByTestId("plotly-chart")).toBeInTheDocument();
-    expect(screen.getByText(/region/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/region/i).length).toBeGreaterThan(0);
   });
 
   it("loads sessions and submits dashboard updates", async () => {

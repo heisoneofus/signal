@@ -1,0 +1,35 @@
+import { describe, expect, it, vi } from "vitest";
+
+import { apiFetch, resolveApiBaseUrl, shouldUseStoredUploads } from "./api";
+
+describe("api helpers", () => {
+  it("prefers an explicit API base URL override", () => {
+    expect(resolveApiBaseUrl({ explicitBaseUrl: "https://api.example.com", isDev: false })).toBe(
+      "https://api.example.com",
+    );
+  });
+
+  it("uses the local backend during development by default", () => {
+    expect(resolveApiBaseUrl({ explicitBaseUrl: "", isDev: true })).toBe("http://127.0.0.1:8000");
+  });
+
+  it("uses the same-origin Vercel API path in production by default", () => {
+    expect(resolveApiBaseUrl({ explicitBaseUrl: "", isDev: false })).toBe("/api");
+  });
+
+  it("explains how to recover when the local API server is unreachable", async () => {
+    global.fetch = vi.fn().mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    await expect(apiFetch("/generate")).rejects.toThrow(/Start the backend with: uv run uvicorn backend\.main:app --reload/i);
+  });
+
+  it("keeps direct uploads disabled outside production unless explicitly enabled", () => {
+    expect(shouldUseStoredUploads({ explicitOverride: "", isProd: false })).toBe(false);
+    expect(shouldUseStoredUploads({ explicitOverride: "true", isProd: false })).toBe(true);
+  });
+
+  it("enables stored uploads by default in production", () => {
+    expect(shouldUseStoredUploads({ explicitOverride: "", isProd: true })).toBe(true);
+    expect(shouldUseStoredUploads({ explicitOverride: "false", isProd: true })).toBe(false);
+  });
+});

@@ -56,7 +56,7 @@ class VisualSpec(BaseModel):
 
 class DashboardSpec(BaseModel):
     id: str = Field(default_factory=lambda: _make_id("dashboard"))
-    title: str = "Zenith Wrangler Dashboard"
+    title: str = "Signal Dashboard"
     layout: Literal["grid", "tabs", "sections"] = "grid"
     theme: Literal["light", "dark"] = "light"
     visuals: list[VisualSpec] = Field(default_factory=list)

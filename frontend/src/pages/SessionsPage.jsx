@@ -43,12 +43,12 @@ export function SessionsPage() {
           <p className="eyebrow">Sessions</p>
           <h2>Previous runs</h2>
         </div>
-        <Link className="button" to="/">
+        <Link className="button button--primary" to="/upload">
           New run
         </Link>
       </div>
 
-      {loading ? <p className="status">Loading sessions…</p> : null}
+      {loading ? <p className="status">Loading sessions...</p> : null}
       {error ? <p className="status status--error">{error}</p> : null}
       {!loading && !error && !items.length ? <p className="status">No sessions have been recorded yet.</p> : null}
 

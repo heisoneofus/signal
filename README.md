@@ -1,8 +1,8 @@
-# Zenith Wrangler
+# Signal
 
-Zenith Wrangler now supports two local workflows on top of the same Python analysis core:
+Signal now supports two local workflows on top of the same Python analysis core:
 
-- `wrangler.py` / `uv run zenith-wrangler` for the legacy CLI + Dash experience
+- `signal_cli.py` / `uv run signal` for the legacy CLI + Dash experience
 - `backend/` + `frontend/` for a FastAPI + React + Plotly web stack
 
 The analyzer, orchestrator, patcher, tool registry, and session logging system are still the source of truth. The new web app wraps those pieces instead of rewriting them.
@@ -85,19 +85,19 @@ The CLI is still available and now routes execution through the shared applicati
 ### Standard Run
 
 ```bash
-uv run zenith-wrangler --data sample_data/sample.csv
+uv run signal --data sample_data/sample.csv
 ```
 
 ### Review Only
 
 ```bash
-uv run zenith-wrangler --data sample_data/sample.csv --review-only --output-format html
+uv run signal --data sample_data/sample.csv --review-only --output-format html
 ```
 
 ### Update A Prior Session
 
 ```bash
-uv run zenith-wrangler \
+uv run signal \
   --update \
   --session logs/session_20260404_010101.log \
   --prompt "Change the first chart to a scatter plot and add a region filter"

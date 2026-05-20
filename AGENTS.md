@@ -1,8 +1,8 @@
-# Zenith Wrangler - AI-Powered Data Dashboard Generator
+# Signal - AI-Powered Data Dashboard Generator
 
 ## Overview
 
-Zenith Wrangler is an autonomous microservice that transforms raw datasets into interactive dashboards through intelligent analysis and automated visualization generation. It leverages LLM reasoning (GPT-5.4) to understand data characteristics, determine optimal transformations, and generate production-ready Plotly Dash dashboards.
+Signal is an autonomous microservice that transforms raw datasets into interactive dashboards through intelligent analysis and automated visualization generation. It leverages LLM reasoning (GPT-5.4) to understand data characteristics, determine optimal transformations, and generate production-ready Plotly Dash dashboards.
 
 ## Core Functionality
 
@@ -92,13 +92,13 @@ Format: Structured JSON or human-readable markdown with clear section delineatio
 
 ```shell script
 # Standard mode
-python wrangler.py --data path/to/dataset.csv --description path/to/context.yaml
+python signal_cli.py --data path/to/dataset.csv --description path/to/context.yaml
 
 # Update mode
-python wrangler.py --update --session logs/session_20260401_143022.log --prompt "Change the time series to a bar chart and add a region filter"
+python signal_cli.py --update --session logs/session_20260401_143022.log --prompt "Change the time series to a bar chart and add a region filter"
 
 # Advanced options
-python wrangler.py --data data.parquet --output-format server --port 8050 --log-level debug
+python signal_cli.py --data data.parquet --output-format server --port 8050 --log-level debug
 ```
 
 
@@ -262,8 +262,8 @@ The system can now robustly process:
 ## Project Structure
 
 ```
-zenith-wrangler/
-├── wrangler.py                 # CLI entrypoint
+signal/
+├── signal_cli.py                 # CLI entrypoint
 ├── src/
 │   ├── agents/
 │   │   ├── analyzer.py         # Phase 1 LLM calls

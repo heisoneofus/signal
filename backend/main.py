@@ -13,18 +13,35 @@ from backend.schemas import (
     GenerateResponse,
     SessionDetailResponse,
     SessionsListResponse,
+    StoredDatasetRequest,
     UpdateRequest,
     UpdateResponse,
 )
-from src.services import ApplicationService
-from src.services import artifacts as artifact_service
+import src.services.artifacts as artifact_service
+
+
+class LazyApplicationService:
+    def __init__(self, root_dir: Path) -> None:
+        self.root_dir = root_dir
+        self._instance = None
+
+    def _get_instance(self):
+        if self._instance is None:
+            from src.services import ApplicationService
+
+            self._instance = ApplicationService(root_dir=self.root_dir)
+        return self._instance
+
+    def __getattr__(self, name: str):
+        return getattr(self._get_instance(), name)
 
 
 def create_app(root_dir: Path | None = None) -> FastAPI:
     resolved_root = (root_dir or Path(__file__).resolve().parent.parent).resolve()
-    service = ApplicationService(root_dir=resolved_root)
+    service = LazyApplicationService(root_dir=resolved_root)
 
-    app = FastAPI(title="Zenith Wrangler API", version="0.1.0")
+    app = FastAPI(title="Signal API", version="0.1.0")
+    app.state.service = service
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -60,6 +77,20 @@ def create_app(root_dir: Path | None = None) -> FastAPI:
             artifacts=result.artifacts,
         )
 
+    @app.post("/analyze/stored", response_model=AnalyzeResponse)
+    async def analyze_stored(payload: StoredDatasetRequest) -> AnalyzeResponse:
+        result = service.analyze_stored_dataset(
+            dataset_key=payload.dataset_key,
+            filename=payload.filename,
+            context_text=payload.context_text,
+        )
+        return AnalyzeResponse(
+            session_id=result.session_id,
+            analysis=result.analysis.model_dump(),
+            dashboard_spec=result.dashboard_spec.model_dump(),
+            artifacts=result.artifacts,
+        )
+
     @app.post("/generate", response_model=GenerateResponse)
     async def generate(
         dataset: UploadFile = File(...),
@@ -70,6 +101,22 @@ def create_app(root_dir: Path | None = None) -> FastAPI:
             filename=dataset.filename or "dataset.csv",
             content=content,
             context_text=context_text,
+        )
+        return GenerateResponse(
+            session_id=result.session_id,
+            analysis=result.analysis.model_dump(),
+            dashboard_spec=result.dashboard_spec.model_dump(),
+            figures=result.figures,
+            session_status=result.session_status,
+            artifacts=result.artifacts,
+        )
+
+    @app.post("/generate/stored", response_model=GenerateResponse)
+    async def generate_stored(payload: StoredDatasetRequest) -> GenerateResponse:
+        result = service.generate_stored_dataset(
+            dataset_key=payload.dataset_key,
+            filename=payload.filename,
+            context_text=payload.context_text,
         )
         return GenerateResponse(
             session_id=result.session_id,

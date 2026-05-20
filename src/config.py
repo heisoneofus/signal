@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,6 +17,7 @@ class LLMConfig:
 @dataclass(frozen=True)
 class AppConfig:
     root_dir: Path
+    work_dir: Path
     logs_dir: Path
     outputs_dir: Path
     llm: LLMConfig = LLMConfig()
@@ -22,8 +25,16 @@ class AppConfig:
 
     @staticmethod
     def default(root_dir: Path) -> "AppConfig":
+        configured_work_dir = os.getenv("SIGNAL_WORK_DIR", "").strip()
+        if configured_work_dir:
+            work_dir = Path(configured_work_dir).expanduser().resolve()
+        elif os.getenv("VERCEL"):
+            work_dir = (Path(tempfile.gettempdir()) / "signal").resolve()
+        else:
+            work_dir = root_dir.resolve()
         return AppConfig(
-            root_dir=root_dir,
-            logs_dir=root_dir / "logs",
-            outputs_dir=root_dir / "outputs",
+            root_dir=root_dir.resolve(),
+            work_dir=work_dir,
+            logs_dir=work_dir / "logs",
+            outputs_dir=work_dir / "outputs",
         )

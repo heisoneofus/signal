@@ -10,8 +10,6 @@ import plotly.graph_objects as go
 import plotly.io as pio
 from loguru import logger
 
-from dash import Dash, html
-
 from src.models import VisualSpec
 
 
@@ -424,7 +422,9 @@ def build_error_app(
     message: str,
     details: str | None = None,
     theme: DashboardTheme | str = "dark",
-) -> Dash:
+) -> Any:
+    from dash import Dash, html
+
     tokens = get_dashboard_theme(theme)
     app = Dash(__name__)
     children: list = [
@@ -596,7 +596,7 @@ def export_dashboard(
     output_path: Path,
     title: str,
     figures: Iterable,
-    app: Dash | None = None,
+    app: Any | None = None,
     port: int = 8050,
 ) -> Path | None:
     normalized_format = output_format.lower()

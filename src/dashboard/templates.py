@@ -3,7 +3,7 @@ from __future__ import annotations
 from src.models import DashboardSpec, VisualSpec
 
 
-def default_dashboard(title: str = "Zenith Wrangler Dashboard") -> DashboardSpec:
+def default_dashboard(title: str = "Signal Dashboard") -> DashboardSpec:
     return DashboardSpec(title=title)
 
 

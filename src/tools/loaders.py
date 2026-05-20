@@ -19,7 +19,13 @@ def read_excel(path: Path, sample_rows: int | None = None) -> pd.DataFrame:
 
 
 def read_parquet(path: Path, sample_rows: int | None = None) -> pd.DataFrame:
-    df = pd.read_parquet(path)
+    try:
+        df = pd.read_parquet(path)
+    except ImportError as exc:
+        raise RuntimeError(
+            "Parquet support requires an optional parquet engine such as `pyarrow`. "
+            "This deployment only supports CSV and Excel uploads."
+        ) from exc
     if sample_rows:
         return df.head(sample_rows)
     return df

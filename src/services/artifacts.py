@@ -31,37 +31,69 @@ ARTIFACT_CONTENT_TYPES: dict[ArtifactType, str] = {
 }
 
 
+def log_key(session_id: str) -> str:
+    return f"logs/{session_id}.log"
+
+
+def state_key(session_id: str) -> str:
+    return f"logs/{session_id}{STATE_SUFFIX}"
+
+
+def trace_key(session_id: str) -> str:
+    return f"logs/{session_id}{TRACE_SUFFIX}"
+
+
+def dashboard_spec_key(session_id: str) -> str:
+    return f"outputs/dashboard_spec_{session_id}.json"
+
+
+def figures_key(session_id: str) -> str:
+    return f"outputs/figures_{session_id}.json"
+
+
+def context_key(session_id: str) -> str:
+    return f"outputs/context_{session_id}.txt"
+
+
+def transformed_dataset_key(session_id: str) -> str:
+    return f"outputs/transformed_{session_id}.parquet"
+
+
+def source_key(session_id: str, suffix: str) -> str:
+    normalized_suffix = suffix if suffix.startswith(".") else f".{suffix}"
+    return f"outputs/source_{session_id}{normalized_suffix}"
+
+
 def log_path(config: AppConfig, session_id: str) -> Path:
-    return config.logs_dir / f"{session_id}.log"
+    return config.work_dir / log_key(session_id)
 
 
 def state_path(config: AppConfig, session_id: str) -> Path:
-    return config.logs_dir / f"{session_id}{STATE_SUFFIX}"
+    return config.work_dir / state_key(session_id)
 
 
 def trace_path(config: AppConfig, session_id: str) -> Path:
-    return config.logs_dir / f"{session_id}{TRACE_SUFFIX}"
+    return config.work_dir / trace_key(session_id)
 
 
 def dashboard_spec_path(config: AppConfig, session_id: str) -> Path:
-    return config.outputs_dir / f"dashboard_spec_{session_id}.json"
+    return config.work_dir / dashboard_spec_key(session_id)
 
 
 def figures_path(config: AppConfig, session_id: str) -> Path:
-    return config.outputs_dir / f"figures_{session_id}.json"
+    return config.work_dir / figures_key(session_id)
 
 
 def context_path(config: AppConfig, session_id: str) -> Path:
-    return config.outputs_dir / f"context_{session_id}.txt"
+    return config.work_dir / context_key(session_id)
 
 
 def transformed_dataset_path(config: AppConfig, session_id: str) -> Path:
-    return config.outputs_dir / f"transformed_{session_id}.parquet"
+    return config.work_dir / transformed_dataset_key(session_id)
 
 
 def source_path(config: AppConfig, session_id: str, suffix: str) -> Path:
-    normalized_suffix = suffix if suffix.startswith(".") else f".{suffix}"
-    return config.outputs_dir / f"source_{session_id}{normalized_suffix}"
+    return config.work_dir / source_key(session_id, suffix)
 
 
 def discover_source_path(config: AppConfig, session_id: str, state: SessionState | None = None) -> Path | None:

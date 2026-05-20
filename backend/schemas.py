@@ -29,6 +29,12 @@ class UpdateRequest(BaseModel):
     prompt: str
 
 
+class StoredDatasetRequest(BaseModel):
+    dataset_key: str
+    filename: str
+    context_text: str | None = None
+
+
 class UpdateResponse(BaseModel):
     session_id: str
     dashboard_spec: dict[str, Any]

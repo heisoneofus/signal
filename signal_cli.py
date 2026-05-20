@@ -95,6 +95,7 @@ def main(
     if llm_api_key:
         config = AppConfig(
             root_dir=config.root_dir,
+            work_dir=config.work_dir,
             logs_dir=config.logs_dir,
             outputs_dir=config.outputs_dir,
             llm=LLMConfig(

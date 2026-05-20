@@ -4,12 +4,11 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
 from src.config import AppConfig
-from src.dashboard.builder import DashboardResult, build_dashboard
 from src.models import AnalysisReport, DashboardSpec, ExecutionTrace, ToolEvent, VisualSpec
 from src.tooling import (
     AggregateByParams,
@@ -26,6 +25,11 @@ from src.tooling import (
     ToolSpec,
 )
 from src.tools import cleaning, loaders, transforms, visualization
+
+if TYPE_CHECKING:
+    from src.dashboard.builder import DashboardResult
+else:  # pragma: no cover - typing fallback
+    DashboardResult = Any
 
 
 _IDENTIFIER_NAME_PATTERN = re.compile(r"(^id$|_id$|^id_|uuid|guid|identifier|transaction_id|person_id|user_id)", re.IGNORECASE)
@@ -111,6 +115,16 @@ def _safe_create_figure(context: dict[str, Any], spec: VisualSpec | dict[str, An
         return visualization.create_figure(dataframe, visual_spec)
     except Exception as exc:
         return visualization.error_figure(visual_spec.title, f"Unable to render chart: {exc}")
+
+
+def _execute_build_dashboard(ctx: dict[str, Any], design: DashboardSpec | dict[str, Any], dataframe_ref: str | None = None):
+    from src.dashboard.builder import build_dashboard
+
+    resolved_design = design if isinstance(design, DashboardSpec) else DashboardSpec.model_validate(design)
+    return build_dashboard(
+        _resolve_context_dataframe(ctx, dataframe_ref=dataframe_ref, default_to_baseline=True),
+        resolved_design,
+    )
 
 
 class ToolRegistry:
@@ -557,7 +571,7 @@ class Orchestrator:
         output = visualization.export_dashboard(
             output_format=output_format,
             output_path=output_path,
-            title=dashboard.spec.title if dashboard else "Zenith Wrangler Dashboard",
+            title=dashboard.spec.title if dashboard else "Signal Dashboard",
             figures=figures,
             app=dashboard.app if dashboard else None,
             port=port,
@@ -839,9 +853,10 @@ def build_registry() -> ToolRegistry:
                     "design": {"title": "Regional Dashboard", "layout": "grid", "visuals": []},
                 },
             ],
-            execute=lambda ctx, design, dataframe_ref=None: build_dashboard(
-                _resolve_context_dataframe(ctx, dataframe_ref=dataframe_ref, default_to_baseline=True),
-                design if isinstance(design, DashboardSpec) else DashboardSpec.model_validate(design),
+            execute=lambda ctx, design, dataframe_ref=None: _execute_build_dashboard(
+                ctx,
+                design,
+                dataframe_ref=dataframe_ref,
             ),
         )
     )

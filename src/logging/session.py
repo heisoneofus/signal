@@ -29,7 +29,7 @@ def _json_default(value: Any) -> Any:
 
 def make_session_id(now: datetime | None = None) -> str:
     timestamp = now or datetime.now()
-    return timestamp.strftime("%Y%m%d_%H%M%S")
+    return timestamp.strftime("%Y%m%d_%H%M%S_%f")
 
 
 @dataclass

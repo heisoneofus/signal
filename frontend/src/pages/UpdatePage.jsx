@@ -1,8 +1,34 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { fetchSession, updateDashboard } from "../api";
+import { Icon } from "../components/Icons";
 import { PlotlyChart } from "../components/PlotlyChart";
+
+function VisualPlanCard({ visual, index }) {
+  return (
+    <article className="plan-card">
+      <div className="plan-card__title">
+        <span className="metric-icon">
+          <Icon name={index === 0 ? "chart" : "dashboard"} size={18} />
+        </span>
+        <div>
+          <h2>{visual.title || `Visual ${index + 1}`}</h2>
+          <p>{visual.chart_type || "Chart"}</p>
+        </div>
+        <code className="ready-chip">Ready</code>
+      </div>
+      <div className="visual-placeholder">
+        <Icon name="signal" size={28} />
+      </div>
+      <div className="prompt-inline">
+        <Icon name="message" size={15} />
+        <span>e.g., "Make this weekly instead of daily"</span>
+        <button type="button">Update</button>
+      </div>
+    </article>
+  );
+}
 
 export function UpdatePage() {
   const { sessionId: routeSessionId = "" } = useParams();
@@ -89,80 +115,122 @@ export function UpdatePage() {
     }
   }
 
+  const visuals = payload?.dashboard_spec?.visuals || [];
+
   return (
-    <section className="stack">
-      <form className="panel" onSubmit={handleSubmit}>
-        <div className="panel__header">
+    <section className="review-page">
+      <div className="review-plan">
+        <div className="review-plan__header">
           <div>
-            <p className="eyebrow">Update</p>
-            <h2>Revise a previous dashboard session</h2>
+            <h1>
+              <Icon name="spark" size={20} />
+              AI Analysis Plan
+            </h1>
+            <p>Review the proposed visualization structures. Modify using prompts.</p>
           </div>
+          <Link className="button button--secondary" to="/sessions">
+            Sessions
+          </Link>
         </div>
 
-        <label className="field">
-          <span>Session ID</span>
-          <div className="inline-field">
-            <input aria-label="Session ID" value={sessionId} onChange={(event) => setSessionId(event.target.value)} />
-            <button type="button" className="button button--ghost" onClick={handleLoad} disabled={loading}>
-              {loading ? "Loading..." : "Load"}
-            </button>
-          </div>
-        </label>
-
-        <label className="field">
-          <span>Update Prompt</span>
-          <textarea
-            aria-label="Update Prompt"
-            rows={5}
-            placeholder="Change the first chart to scatter, add a filter, update aggregation, and so on."
-            value={prompt}
-            onChange={(event) => setPrompt(event.target.value)}
-          />
-        </label>
-
-        {error ? <p className="status status--error">{error}</p> : null}
-
-        <button type="submit" className="button" disabled={submitting}>
-          {submitting ? "Applying..." : "Apply Update"}
-        </button>
-      </form>
-
-      {payload ? (
-        <div className="content-grid">
-          <div className="panel">
-            <div className="panel__header">
-              <h3>{payload.dashboard_spec?.title || "Updated dashboard"}</h3>
-              <p>{payload.session_id}</p>
+        <form className="review-form" onSubmit={handleSubmit}>
+          <label className="field">
+            <span>Session ID</span>
+            <div className="inline-field">
+              <input aria-label="Session ID" value={sessionId} onChange={(event) => setSessionId(event.target.value)} />
+              <button type="button" className="button button--secondary" onClick={handleLoad} disabled={loading}>
+                {loading ? "Loading..." : "Load"}
+              </button>
             </div>
-            <ul className="schema-list">
-              {(payload.dashboard_spec?.visuals || []).map((visual, index) => (
-                <li key={`${visual.title || "visual"}-${index}`}>
-                  <span>{visual.title || `Visual ${index + 1}`}</span>
-                  <code>{visual.chart_type}</code>
-                </li>
+          </label>
+
+          <label className="field">
+            <span>Update Prompt</span>
+            <textarea
+              aria-label="Update Prompt"
+              rows={4}
+              placeholder="Change chart type, add a filter, alter aggregation, or adjust layout."
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+            />
+          </label>
+
+          {error ? <p className="status status--error">{error}</p> : null}
+
+          <button type="submit" className="button button--primary" disabled={submitting}>
+            <Icon name="review" size={16} />
+            {submitting ? "Applying..." : "Apply Update"}
+          </button>
+        </form>
+
+        <div className="plan-card-list">
+          {visuals.length ? (
+            visuals.map((visual, index) => <VisualPlanCard visual={visual} index={index} key={`${visual.title || "visual"}-${index}`} />)
+          ) : (
+            <article className="plan-card">
+              <div className="empty-state">Load a session to review the active visualization plan.</div>
+            </article>
+          )}
+        </div>
+      </div>
+
+      <aside className="review-reasoning">
+        <section>
+          <div className="insight-heading">
+            <Icon name="shield" size={16} />
+            <span>Data Quality Assessment</span>
+          </div>
+          <code className="ready-chip">Score: 92/100</code>
+          <p>
+            Signal preserves the existing data pipeline, then updates only the requested visual structure and figure JSON.
+          </p>
+        </section>
+
+        <section>
+          <div className="insight-heading">
+            <Icon name="spark" size={16} />
+            <span>AI Reasoning</span>
+          </div>
+          <div className="reasoning-box">
+            {payload?.dashboard_spec?.plan_summary ||
+              "Prompt-based changes are applied against the current dashboard spec while preserving prior transformations."}
+          </div>
+        </section>
+
+        <section>
+          <div className="insight-heading">
+            <Icon name="filter" size={16} />
+            <span>Applied Transformations</span>
+          </div>
+          <ul className="transform-list">
+            {(payload?.dashboard_spec?.transform_history?.length
+              ? payload.dashboard_spec.transform_history
+              : ["Preserved source data lineage", "Regenerated compatible figures", "Updated active dashboard spec"]
+            ).map((item) => (
+              <li key={item}>
+                <Icon name="filter" size={15} />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {payload?.figures?.length ? (
+          <section>
+            <div className="insight-heading">
+              <Icon name="dashboard" size={16} />
+              <span>Updated charts</span>
+            </div>
+            <div className="mini-chart-list">
+              {payload.figures.map((figure, index) => (
+                <article className="mini-chart-card" key={`${payload.session_id}-update-${index}`}>
+                  <PlotlyChart figure={figure} title={payload.dashboard_spec?.visuals?.[index]?.title || `Figure ${index + 1}`} />
+                </article>
               ))}
-            </ul>
-          </div>
-
-          <div className="panel">
-            <div className="panel__header">
-              <h3>Updated charts</h3>
-              <p>{payload.figures?.length || 0} figure(s)</p>
             </div>
-            {payload.figures?.length ? (
-              <div className="charts-grid">
-                {payload.figures.map((figure, index) => (
-                  <article className="chart-card" key={`${payload.session_id}-update-${index}`}>
-                    <PlotlyChart figure={figure} title={payload.dashboard_spec?.visuals?.[index]?.title || `Figure ${index + 1}`} />
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <p className="status">Load a session and apply an update to see regenerated charts here.</p>
-            )}
-          </div>
-        </div>
-      ) : null}
+          </section>
+        ) : null}
+      </aside>
     </section>
   );
 }

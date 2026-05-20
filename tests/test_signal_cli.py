@@ -9,10 +9,10 @@ import pandas as pd
 import pyarrow as pa
 from click.testing import CliRunner
 
-from wrangler import _prepare_dataframe_for_parquet, _write_tool_catalog_artifact, main
+from signal_cli import _prepare_dataframe_for_parquet, _write_tool_catalog_artifact, main
 
 
-class WranglerParquetPreparationTests(unittest.TestCase):
+class SignalCliParquetPreparationTests(unittest.TestCase):
     def test_prepare_dataframe_for_parquet_converts_mixed_object_columns(self) -> None:
         dataframe = pd.DataFrame(
             {

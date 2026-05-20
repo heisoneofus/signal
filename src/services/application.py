@@ -13,10 +13,10 @@ from src.agents.navigator import NavigatorAgent
 from src.agents.orchestrator import Orchestrator, build_registry
 from src.agents.patcher import apply_dashboard_patch, parse_update_prompt
 from src.config import AppConfig, LLMConfig
-from src.dashboard.builder import build_dashboard
 from src.logging.session import SessionLogger, init_session_logger, load_dashboard_spec, load_session_metadata, load_session_state
 from src.models import AnalysisReport, DashboardSpec, ExecutionTrace, SessionState
 import src.services.artifacts as artifacts
+from src.storage import ArtifactStore, create_artifact_store
 from src.tools import loaders
 from src.tools.visualization import create_figure, error_figure, export_dashboard
 
@@ -126,6 +126,7 @@ class ApplicationService:
         if llm_api_key:
             self.config = AppConfig(
                 root_dir=base_config.root_dir,
+                work_dir=base_config.work_dir,
                 logs_dir=base_config.logs_dir,
                 outputs_dir=base_config.outputs_dir,
                 llm=LLMConfig(
@@ -138,6 +139,140 @@ class ApplicationService:
             )
         else:
             self.config = base_config
+        self.artifact_store: ArtifactStore = create_artifact_store(self.config.work_dir)
+        self.remote_artifacts_enabled = self.artifact_store.is_remote
+
+    def _artifact_local_path_from_key(self, key: str) -> Path:
+        return (self.config.work_dir / Path(key)).resolve()
+
+    def _normalize_session_locations(
+        self,
+        session_state: SessionState,
+        *,
+        source_path: Path | None = None,
+        context_path: Path | None = None,
+        transformed_path: Path | None = None,
+    ) -> None:
+        if not self.remote_artifacts_enabled:
+            return
+        if source_path is not None:
+            session_state.data_path = artifacts.source_key(session_state.session_id, source_path.suffix or ".csv")
+        if context_path is not None:
+            session_state.description_path = artifacts.context_key(session_state.session_id)
+        if transformed_path is not None:
+            session_state.transformed_dataset = artifacts.transformed_dataset_key(session_state.session_id)
+
+    def _sync_session_artifacts(self, session_id: str, state: SessionState | None = None) -> None:
+        if not self.remote_artifacts_enabled:
+            return
+
+        source_path = artifacts.discover_source_path(self.config, session_id)
+        upload_candidates: list[tuple[Path, str, str | None]] = [
+            (artifacts.log_path(self.config, session_id), artifacts.log_key(session_id), artifacts.ARTIFACT_CONTENT_TYPES["log"]),
+            (artifacts.state_path(self.config, session_id), artifacts.state_key(session_id), artifacts.ARTIFACT_CONTENT_TYPES["state"]),
+            (artifacts.trace_path(self.config, session_id), artifacts.trace_key(session_id), artifacts.ARTIFACT_CONTENT_TYPES["trace"]),
+            (
+                artifacts.dashboard_spec_path(self.config, session_id),
+                artifacts.dashboard_spec_key(session_id),
+                artifacts.ARTIFACT_CONTENT_TYPES["dashboard_spec"],
+            ),
+            (artifacts.figures_path(self.config, session_id), artifacts.figures_key(session_id), artifacts.ARTIFACT_CONTENT_TYPES["figures"]),
+            (artifacts.context_path(self.config, session_id), artifacts.context_key(session_id), artifacts.ARTIFACT_CONTENT_TYPES["context"]),
+            (
+                artifacts.transformed_dataset_path(self.config, session_id),
+                artifacts.transformed_dataset_key(session_id),
+                artifacts.ARTIFACT_CONTENT_TYPES["transformed_dataset"],
+            ),
+        ]
+        if source_path is not None:
+            upload_candidates.append(
+                (source_path, artifacts.source_key(session_id, source_path.suffix or ".csv"), artifacts.ARTIFACT_CONTENT_TYPES["source"])
+            )
+
+        for local_path, key, content_type in upload_candidates:
+            if local_path.exists():
+                self.artifact_store.upload_file(local_path, key, content_type=content_type)
+
+    def _ensure_local_artifact(self, key: str) -> Path:
+        local_path = self._artifact_local_path_from_key(key)
+        if local_path.exists():
+            return local_path
+        if not self.remote_artifacts_enabled:
+            return local_path
+        return self.artifact_store.materialize(key, destination=local_path)
+
+    def _hydrate_remote_session(self, session_id: str) -> None:
+        if not self.remote_artifacts_enabled:
+            return
+        keys_to_hydrate = [
+            artifacts.log_key(session_id),
+            artifacts.state_key(session_id),
+            artifacts.trace_key(session_id),
+            artifacts.dashboard_spec_key(session_id),
+            artifacts.figures_key(session_id),
+            artifacts.context_key(session_id),
+            artifacts.transformed_dataset_key(session_id),
+        ]
+        for key in keys_to_hydrate:
+            if self.artifact_store.exists(key):
+                self._ensure_local_artifact(key)
+        source_matches = self.artifact_store.list_keys(f"outputs/source_{session_id}")
+        for key in source_matches:
+            self._ensure_local_artifact(key)
+
+    def _materialize_stored_dataset(self, dataset_key: str, session_id: str, filename: str) -> Path:
+        suffix = Path(filename).suffix or Path(dataset_key).suffix or ".csv"
+        destination = artifacts.source_path(self.config, session_id, suffix)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        return self.artifact_store.materialize(dataset_key, destination=destination)
+
+    def _session_ids_from_store(self) -> list[str]:
+        session_ids: set[str] = set()
+        for key in self.artifact_store.list_keys("logs/session_"):
+            name = Path(key).name
+            if name.endswith(".state.json"):
+                session_ids.add(name.removesuffix(".state.json"))
+            elif name.endswith(".log"):
+                session_ids.add(Path(name).stem)
+        return sorted(session_ids, reverse=True)
+
+    def _is_local_path_reference(self, value: str) -> bool:
+        return bool(value) and Path(value).is_absolute()
+
+    def _artifact_key(
+        self,
+        session_id: str,
+        artifact_type: artifacts.ArtifactType,
+        state: SessionState | None = None,
+    ) -> str | None:
+        if artifact_type == "log":
+            return artifacts.log_key(session_id)
+        if artifact_type == "state":
+            return artifacts.state_key(session_id)
+        if artifact_type == "trace":
+            return artifacts.trace_key(session_id)
+        if artifact_type == "dashboard_spec":
+            return artifacts.dashboard_spec_key(session_id)
+        if artifact_type == "figures":
+            return artifacts.figures_key(session_id)
+        if artifact_type == "context":
+            if state and state.description_path and not self._is_local_path_reference(state.description_path):
+                return state.description_path
+            return artifacts.context_key(session_id)
+        if artifact_type == "transformed_dataset":
+            if state and state.transformed_dataset and not self._is_local_path_reference(state.transformed_dataset):
+                return state.transformed_dataset
+            return artifacts.transformed_dataset_key(session_id)
+        if artifact_type == "source":
+            if state and state.data_path and not self._is_local_path_reference(state.data_path):
+                return state.data_path
+            local_source = artifacts.discover_source_path(self.config, session_id, state=state)
+            if local_source is not None:
+                return artifacts.source_key(session_id, local_source.suffix or ".csv")
+            if self.remote_artifacts_enabled:
+                matches = self.artifact_store.list_keys(f"outputs/source_{session_id}")
+                return matches[0] if matches else None
+        return None
 
     def analyze_uploaded_dataset(
         self,
@@ -150,6 +285,80 @@ class ApplicationService:
         session_id = session_logger.path.stem
         source_path = self._write_source_artifact(session_id, filename, content)
         context_path = self._write_context_artifact(session_id, context_text)
+        return self._analyze_local_source(
+            session_id=session_id,
+            session_logger=session_logger,
+            source_path=source_path,
+            context_path=context_path,
+            api_mode="analyze",
+        )
+
+    def analyze_stored_dataset(
+        self,
+        *,
+        dataset_key: str,
+        filename: str,
+        context_text: str | None = None,
+    ) -> AnalyzeResult:
+        session_logger = init_session_logger(self.config.logs_dir)
+        session_id = session_logger.path.stem
+        source_path = self._materialize_stored_dataset(dataset_key, session_id, filename)
+        context_path = self._write_context_artifact(session_id, context_text)
+        return self._analyze_local_source(
+            session_id=session_id,
+            session_logger=session_logger,
+            source_path=source_path,
+            context_path=context_path,
+            api_mode="analyze_stored",
+        )
+
+    def generate_uploaded_dataset(
+        self,
+        *,
+        filename: str,
+        content: bytes,
+        context_text: str | None = None,
+    ) -> GenerateResult:
+        session_logger = init_session_logger(self.config.logs_dir)
+        session_id = session_logger.path.stem
+        source_path = self._write_source_artifact(session_id, filename, content)
+        context_path = self._write_context_artifact(session_id, context_text)
+        return self._generate_local_source(
+            session_id=session_id,
+            session_logger=session_logger,
+            source_path=source_path,
+            context_path=context_path,
+            api_mode="generate",
+        )
+
+    def generate_stored_dataset(
+        self,
+        *,
+        dataset_key: str,
+        filename: str,
+        context_text: str | None = None,
+    ) -> GenerateResult:
+        session_logger = init_session_logger(self.config.logs_dir)
+        session_id = session_logger.path.stem
+        source_path = self._materialize_stored_dataset(dataset_key, session_id, filename)
+        context_path = self._write_context_artifact(session_id, context_text)
+        return self._generate_local_source(
+            session_id=session_id,
+            session_logger=session_logger,
+            source_path=source_path,
+            context_path=context_path,
+            api_mode="generate_stored",
+        )
+
+    def _analyze_local_source(
+        self,
+        *,
+        session_id: str,
+        session_logger: SessionLogger,
+        source_path: Path,
+        context_path: Path | None,
+        api_mode: str,
+    ) -> AnalyzeResult:
         description_text = _read_description(context_path)
 
         session_logger.section("Input Configuration")
@@ -157,7 +366,7 @@ class ApplicationService:
             {
                 "data": str(source_path),
                 "description": str(context_path) if context_path else "",
-                "api_mode": "analyze",
+                "api_mode": api_mode,
             }
         )
 
@@ -178,10 +387,12 @@ class ApplicationService:
             spec_versions=[analysis.design.model_copy(deep=True)],
             decisions=["Analysis-only API request generated a draft dashboard spec."],
         )
+        self._normalize_session_locations(session_state, source_path=source_path, context_path=context_path)
         session_logger.log_dashboard_spec(analysis.design.model_dump())
         session_logger.log_session_state(session_state)
         session_logger.log_execution_trace(session_state.trace)
         self._write_json_artifact(artifacts.dashboard_spec_path(self.config, session_id), analysis.design.model_dump())
+        self._sync_session_artifacts(session_id, session_state)
 
         return AnalyzeResult(
             session_id=session_id,
@@ -190,17 +401,15 @@ class ApplicationService:
             artifacts=self.list_artifacts(session_id, state=session_state),
         )
 
-    def generate_uploaded_dataset(
+    def _generate_local_source(
         self,
         *,
-        filename: str,
-        content: bytes,
-        context_text: str | None = None,
+        session_id: str,
+        session_logger: SessionLogger,
+        source_path: Path,
+        context_path: Path | None,
+        api_mode: str,
     ) -> GenerateResult:
-        session_logger = init_session_logger(self.config.logs_dir)
-        session_id = session_logger.path.stem
-        source_path = self._write_source_artifact(session_id, filename, content)
-        context_path = self._write_context_artifact(session_id, context_text)
         description_text = _read_description(context_path)
 
         session_logger.section("Input Configuration")
@@ -208,7 +417,7 @@ class ApplicationService:
             {
                 "data": str(source_path),
                 "description": str(context_path) if context_path else "",
-                "api_mode": "generate",
+                "api_mode": api_mode,
                 "output_format": "json",
             }
         )
@@ -230,10 +439,12 @@ class ApplicationService:
             session_id=session_id,
         )
         session_state = navigator.approve(proposal_result.session_state, reason="Auto-approved by API generation.")
+        self._normalize_session_locations(session_state, source_path=source_path, context_path=context_path)
+        api_plan = [call for call in proposal_result.plan if call.tool_name != "build_dashboard"]
 
         session_logger.section("Phase 2: Orchestration")
         execution_result = orchestrator.execute_plan(
-            plan=proposal_result.plan,
+            plan=api_plan,
             output_format="html",
             output_path=self.config.outputs_dir / f"dashboard_{session_id}.html",
             port=8050,
@@ -249,9 +460,14 @@ class ApplicationService:
         if execution_result.dataframe is not None and execution_result.transformations_applied:
             transformed_path = artifacts.transformed_dataset_path(self.config, session_id)
             safe_dataframe = _prepare_dataframe_for_parquet(execution_result.dataframe)
-            safe_dataframe.to_parquet(transformed_path, index=False)
-            session_state.transformed_dataset = str(transformed_path)
-            session_logger.log_kv({"transformed_dataset": str(transformed_path)})
+            try:
+                safe_dataframe.to_parquet(transformed_path, index=False)
+            except Exception as exc:
+                session_logger.log_kv({"transformed_dataset": f"skipped ({exc})"})
+            else:
+                session_state.transformed_dataset = str(transformed_path)
+                self._normalize_session_locations(session_state, transformed_path=transformed_path)
+                session_logger.log_kv({"transformed_dataset": str(transformed_path)})
 
         session_state.output_path = ""
         session_logger.section("Phase 3: Output Generation")
@@ -316,6 +532,7 @@ class ApplicationService:
         )
         session_logger.log_json("Plan Proposal", proposal_result.proposal.model_dump())
         session_state = proposal_result.session_state
+        self._normalize_session_locations(session_state, source_path=data_path, context_path=description_path)
 
         if review_only:
             session_state.status = "planned"
@@ -323,6 +540,7 @@ class ApplicationService:
             session_logger.section("Plan Review")
             session_logger.log_kv({"status": "review_only", "next_step": "Run without --review-only to execute the approved plan."})
             self._persist_session_artifacts(session_logger, session_state)
+            self._sync_session_artifacts(session_id, session_state)
             return CliRunResult(
                 session_id=session_id,
                 session_log=session_logger.path,
@@ -352,9 +570,14 @@ class ApplicationService:
         if execution_result.dataframe is not None and execution_result.transformations_applied:
             transformed_path = artifacts.transformed_dataset_path(self.config, session_id)
             safe_dataframe = _prepare_dataframe_for_parquet(execution_result.dataframe)
-            safe_dataframe.to_parquet(transformed_path, index=False)
-            session_state.transformed_dataset = str(transformed_path)
-            session_logger.log_kv({"transformed_dataset": str(transformed_path)})
+            try:
+                safe_dataframe.to_parquet(transformed_path, index=False)
+            except Exception as exc:
+                session_logger.log_kv({"transformed_dataset": f"skipped ({exc})"})
+            else:
+                session_state.transformed_dataset = str(transformed_path)
+                self._normalize_session_locations(session_state, transformed_path=transformed_path)
+                session_logger.log_kv({"transformed_dataset": str(transformed_path)})
 
         rendered_output = None
         if output_format in {"html", "server", "dash"} and review_dataframe is not None:
@@ -377,6 +600,7 @@ class ApplicationService:
             }
         )
         self._persist_session_artifacts(session_logger, session_state, figures=figures)
+        self._sync_session_artifacts(session_id, session_state)
 
         return CliRunResult(
             session_id=session_id,
@@ -388,6 +612,7 @@ class ApplicationService:
         )
 
     def update_session(self, *, session_id: str, prompt: str) -> UpdateResult:
+        self._hydrate_remote_session(session_id)
         cli_result = self.update_from_log_path(
             session_log=artifacts.log_path(self.config, session_id),
             prompt=prompt,
@@ -412,7 +637,12 @@ class ApplicationService:
         port: int = 8050,
     ) -> CliRunResult:
         if not session_log.exists():
-            raise FileNotFoundError(session_log)
+            candidate_key = artifacts.log_key(session_log.stem)
+            if self.remote_artifacts_enabled and self.artifact_store.exists(candidate_key):
+                session_log = self._ensure_local_artifact(candidate_key)
+            else:
+                raise FileNotFoundError(session_log)
+        self._hydrate_remote_session(session_log.stem)
 
         session_logger = SessionLogger(path=session_log)
         session_state = load_session_state(session_log)
@@ -447,6 +677,7 @@ class ApplicationService:
         session_logger.log_json("Dashboard Patch", patch.model_dump())
         session_logger.log_json("Updated Dashboard Spec", updated_spec.model_dump())
         self._persist_session_artifacts(session_logger, session_state, figures=figures)
+        self._sync_session_artifacts(session_id, session_state)
 
         return CliRunResult(
             session_id=session_id,
@@ -458,6 +689,9 @@ class ApplicationService:
         )
 
     def list_sessions(self) -> list[SessionSummary]:
+        if self.remote_artifacts_enabled:
+            for session_id in self._session_ids_from_store():
+                self._hydrate_remote_session(session_id)
         state_files = sorted(self.config.logs_dir.glob("session_*.state.json"), key=lambda item: item.stat().st_mtime, reverse=True)
         seen: set[str] = set()
         summaries: list[SessionSummary] = []
@@ -483,9 +717,9 @@ class ApplicationService:
                 continue
             metadata = load_session_metadata(log_file)
             try:
-                title = load_dashboard_spec(log_file).get("title", "Zenith Wrangler Dashboard")
+                title = load_dashboard_spec(log_file).get("title", "Signal Dashboard")
             except Exception:
-                title = "Zenith Wrangler Dashboard"
+                title = "Signal Dashboard"
             summaries.append(
                 SessionSummary(
                     session_id=session_id,
@@ -498,6 +732,7 @@ class ApplicationService:
         return summaries
 
     def get_session_detail(self, session_id: str) -> SessionDetail:
+        self._hydrate_remote_session(session_id)
         state = self._load_state(session_id)
         detail_spec = self._load_dashboard_spec_artifact(session_id)
         figures = self._load_figures_artifact(session_id)
@@ -511,19 +746,34 @@ class ApplicationService:
         )
 
     def resolve_artifact(self, session_id: str, artifact_type: artifacts.ArtifactType) -> Path | None:
+        self._hydrate_remote_session(session_id)
         state = self._load_state(session_id)
-        return artifacts.resolve_artifact_path(self.config, session_id, artifact_type, state=state)
+        path = artifacts.resolve_artifact_path(self.config, session_id, artifact_type, state=state)
+        if path is not None and path.exists():
+            return path
+        artifact_key = self._artifact_key(session_id, artifact_type, state=state)
+        if artifact_key and self.artifact_store.exists(artifact_key):
+            return self._ensure_local_artifact(artifact_key)
+        return None
 
     def list_artifacts(self, session_id: str, state: SessionState | None = None) -> list[dict[str, str]]:
         items: list[dict[str, str]] = []
         for artifact_type in artifacts.ARTIFACT_CONTENT_TYPES:
             path = artifacts.resolve_artifact_path(self.config, session_id, artifact_type, state=state)
-            if path is None:
+            artifact_key = self._artifact_key(session_id, artifact_type, state=state)
+            local_exists = path is not None and path.exists()
+            remote_exists = artifact_key is not None and self.artifact_store.exists(artifact_key)
+            if not local_exists and not remote_exists:
                 continue
+            location = (
+                str(path)
+                if local_exists
+                else self.artifact_store.location(artifact_key) if artifact_key is not None else ""
+            )
             items.append(
                 {
                     "type": artifact_type,
-                    "path": str(path),
+                    "path": location,
                     "url": f"/artifacts/{session_id}/{artifact_type}",
                     "content_type": artifacts.ARTIFACT_CONTENT_TYPES[artifact_type],
                 }
@@ -566,8 +816,10 @@ class ApplicationService:
         )
         if figures is not None:
             self._write_json_artifact(artifacts.figures_path(self.config, session_state.session_id), figures)
+        self._sync_session_artifacts(session_state.session_id, session_state)
 
     def _load_state(self, session_id: str) -> SessionState | None:
+        self._hydrate_remote_session(session_id)
         log_path = artifacts.log_path(self.config, session_id)
         if not log_path.exists():
             return None
@@ -577,6 +829,7 @@ class ApplicationService:
             return None
 
     def _load_dashboard_spec_artifact(self, session_id: str) -> dict[str, Any]:
+        self._hydrate_remote_session(session_id)
         artifact_path = artifacts.dashboard_spec_path(self.config, session_id)
         if artifact_path.exists():
             return json.loads(artifact_path.read_text(encoding="utf-8"))
@@ -586,6 +839,7 @@ class ApplicationService:
         return load_dashboard_spec(log_path)
 
     def _load_figures_artifact(self, session_id: str) -> list[dict[str, Any]]:
+        self._hydrate_remote_session(session_id)
         artifact_path = artifacts.figures_path(self.config, session_id)
         if not artifact_path.exists():
             return []
@@ -619,6 +873,8 @@ class ApplicationService:
         output_path: Path,
         port: int,
     ) -> Path | None:
+        from src.dashboard.builder import build_dashboard
+
         dashboard = build_dashboard(df, session_state.active_spec, session_state=session_state)
         return export_dashboard(
             output_format=output_format,
@@ -632,8 +888,12 @@ class ApplicationService:
     def _resolve_update_data_path(self, session_state: SessionState) -> Path:
         if session_state.data_path and Path(session_state.data_path).exists():
             return Path(session_state.data_path)
+        if session_state.data_path and not self._is_local_path_reference(session_state.data_path):
+            return self._ensure_local_artifact(session_state.data_path)
         if session_state.transformed_dataset and Path(session_state.transformed_dataset).exists():
             return Path(session_state.transformed_dataset)
+        if session_state.transformed_dataset and not self._is_local_path_reference(session_state.transformed_dataset):
+            return self._ensure_local_artifact(session_state.transformed_dataset)
         raise FileNotFoundError(f"No dataset artifact available for session '{session_state.session_id}'.")
 
 

@@ -1,6 +1,4 @@
 click>=8.1
-dash>=2.17
-dash-bootstrap-components>=1.6
 fastapi>=0.116
 loguru>=0.7
 openai>=1.40
@@ -8,12 +6,14 @@ openpyxl>=3.1
 pandas>=2.2
 xlrd>=2.0.1
 plotly>=5.22
-pyarrow>=16.0
 pydantic>=2.7
-polars>=0.20
 python-multipart>=0.0.20
 pyyaml>=6.0
 uvicorn>=0.35
+vercel>=0.5.8
 
 [dev]
+dash>=2.17
+dash-bootstrap-components>=1.6
+pyarrow>=16.0
 pytest==9.0.2

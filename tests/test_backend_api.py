@@ -14,6 +14,17 @@ def _client(tmp_path: Path) -> TestClient:
     return TestClient(app)
 
 
+def test_health_endpoint_does_not_initialize_heavy_service(tmp_path: Path) -> None:
+    app = create_app(root_dir=tmp_path)
+    client = TestClient(app)
+
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+    assert app.state.service._instance is None
+
+
 def test_analyze_endpoint_persists_session_and_artifacts(tmp_path: Path) -> None:
     client = _client(tmp_path)
 
@@ -102,3 +113,28 @@ def test_generate_and_update_endpoints_return_plotly_json(tmp_path: Path) -> Non
     assert figures_artifact.status_code == 200
     serialized_figures = json.loads(figures_artifact.text)
     assert len(serialized_figures) == len(updated["figures"])
+
+
+def test_generate_stored_endpoint_processes_preuploaded_dataset(tmp_path: Path) -> None:
+    app = create_app(root_dir=tmp_path)
+    app.state.service.artifact_store.write_bytes(
+        "uploads/sales.csv",
+        b"region,sales,profit\nEU,10,4\nUS,20,9\n",
+        content_type="text/csv",
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/generate/stored",
+        json={
+            "dataset_key": "uploads/sales.csv",
+            "filename": "sales.csv",
+            "context_text": "Show sales and profit by region.",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["session_id"].startswith("session_")
+    assert payload["figures"]
+    assert payload["dashboard_spec"]["title"]

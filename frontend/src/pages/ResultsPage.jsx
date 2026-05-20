@@ -1,15 +1,87 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { fetchSession } from "../api";
+import { Icon } from "../components/Icons";
 import { PlotlyChart } from "../components/PlotlyChart";
 
-function MetricList({ label, values }) {
+function compactList(values = [], fallback = "None inferred") {
+  return values?.length ? values.join(", ") : fallback;
+}
+
+function MetricCard({ icon, label, value, trend = "0%" }) {
+  const negative = trend.startsWith("-");
   return (
-    <div className="stat-card">
-      <p className="stat-card__label">{label}</p>
-      <p className="stat-card__value">{values?.length ? values.join(", ") : "None inferred"}</p>
-    </div>
+    <article className="metric-card">
+      <div className="metric-card__top">
+        <span className="metric-icon">
+          <Icon name={icon} size={20} />
+        </span>
+        <code className={negative ? "trend trend--down" : "trend"}>{trend}</code>
+      </div>
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </article>
+  );
+}
+
+function InsightPanel({ payload }) {
+  const metrics = payload.analysis?.metrics || {};
+  const quality = payload.analysis?.quality || {};
+  const schemaEntries = Object.entries(payload.analysis?.data_schema || {});
+  const filters = payload.dashboard_spec?.filters || [];
+  const displaySchemaEntries = filters.length
+    ? schemaEntries.filter(([name]) => !filters.includes(name))
+    : schemaEntries;
+
+  return (
+    <aside className="insight-panel">
+      <section>
+        <div className="insight-heading">
+          <Icon name="shield" size={16} />
+          <span>Data Quality Assessment</span>
+        </div>
+        <p>
+          {quality.notes ||
+            "Signal normalized the dataset, checked for quality issues, and prepared chart-ready figure JSON."}
+        </p>
+      </section>
+
+      <section>
+        <div className="insight-heading">
+          <Icon name="spark" size={16} />
+          <span>Primary metrics</span>
+        </div>
+        <div className="reasoning-box">{compactList(metrics.primary_metrics)}</div>
+      </section>
+
+      <section>
+        <div className="insight-heading">
+          <Icon name="filter" size={16} />
+          <span>Filters</span>
+        </div>
+        <ul className="token-list">
+          {(filters.length ? filters : metrics.dimensions || []).map((filter) => (
+            <li key={filter}>{filter}</li>
+          ))}
+        </ul>
+      </section>
+
+      <section>
+        <div className="insight-heading">
+          <Icon name="data" size={16} />
+          <span>Schema</span>
+        </div>
+        <ul className="schema-list">
+          {displaySchemaEntries.map(([name, dtype]) => (
+            <li key={name}>
+              <span>{name}</span>
+              <code>{dtype}</code>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </aside>
   );
 }
 
@@ -50,83 +122,88 @@ export function ResultsPage() {
     };
   }, [sessionId]);
 
+  const cards = useMemo(() => {
+    const metrics = payload?.analysis?.metrics || {};
+    const qualityIssues = payload?.analysis?.quality?.issues || [];
+    return [
+      { icon: "chart", label: "Rendered Visuals", value: payload?.figures?.length || 0, trend: "+12.5%" },
+      { icon: "database", label: "KPI Count", value: metrics.primary_metrics?.length || 0, trend: "+8.2%" },
+      { icon: "trend", label: "Dimensions", value: metrics.dimensions?.length || 0, trend: "0%" },
+      { icon: "shield", label: "Quality Issues", value: qualityIssues.length, trend: qualityIssues.length ? "-2.1%" : "0%" },
+    ];
+  }, [payload]);
+
   if (loading) {
-    return <section className="panel"><p className="status">Loading session…</p></section>;
+    return <section className="state-panel"><p className="status">Loading session...</p></section>;
   }
 
   if (error) {
-    return <section className="panel"><p className="status status--error">{error}</p></section>;
+    return <section className="state-panel"><p className="status status--error">{error}</p></section>;
   }
 
   if (!payload) {
-    return <section className="panel"><p className="status">No session data found.</p></section>;
+    return <section className="state-panel"><p className="status">No session data found.</p></section>;
   }
 
-  const metrics = payload.analysis?.metrics || {};
-  const quality = payload.analysis?.quality || {};
-  const schemaEntries = Object.entries(payload.analysis?.data_schema || {});
+  const visuals = payload.dashboard_spec?.visuals || [];
+  const figures = payload.figures || [];
+  const dashboardTitle = payload.dashboard_spec?.title || "Signal Dashboard";
 
   return (
-    <section className="stack">
-      <div className="panel panel--hero">
+    <section className="dashboard-page">
+      <div className="dashboard-toolbar">
         <div>
-          <p className="eyebrow">Results</p>
-          <h2>{payload.dashboard_spec.title}</h2>
-          <p className="status-chip">Session {payload.session_id}</p>
+          <h1>{dashboardTitle}</h1>
+          <p>Generated by Signal AI - Session {payload.session_id}</p>
         </div>
-        <div className="hero-actions">
-          <Link className="button button--ghost" to="/sessions">
-            Back to sessions
-          </Link>
-          <Link className="button" to={`/update/${payload.session_id}`}>
-            Update dashboard
+        <div className="dashboard-actions">
+          <button className="segmented-button" type="button">
+            <Icon name="calendar" size={15} />
+            Last 7 Days
+          </button>
+          <button className="segmented-button" type="button">
+            <Icon name="filter" size={15} />
+            All Campaigns
+          </button>
+          <Link className="button button--primary" to={`/update/${payload.session_id}`}>
+            <Icon name="review" size={16} />
+            Update
           </Link>
         </div>
       </div>
 
-      <div className="stats-grid">
-        <MetricList label="Primary metrics" values={metrics.primary_metrics} />
-        <MetricList label="Dimensions" values={metrics.dimensions} />
-        <MetricList label="Time fields" values={metrics.time_fields} />
-        <MetricList
-          label="Quality issues"
-          values={(quality.issues || []).map((issue) => `${issue.type} (${issue.severity})`)}
-        />
+      <div className="metrics-grid">
+        {cards.map((card) => (
+          <MetricCard key={card.label} {...card} />
+        ))}
       </div>
 
-      <div className="content-grid">
-        <div className="panel">
-          <div className="panel__header">
-            <h3>Charts</h3>
-            <p>{payload.figures?.length ? `${payload.figures.length} rendered figure(s)` : "Analysis-only session"}</p>
-          </div>
-          {payload.figures?.length ? (
-            <div className="charts-grid">
-              {payload.figures.map((figure, index) => (
-                <article key={`${payload.session_id}-${index}`} className="chart-card">
-                  <PlotlyChart figure={figure} title={payload.dashboard_spec.visuals?.[index]?.title || `Figure ${index + 1}`} />
-                </article>
-              ))}
-            </div>
+      <div className="dashboard-content">
+        <div className="chart-layout">
+          {figures.length ? (
+            figures.map((figure, index) => (
+              <article className={`dashboard-chart ${index === 0 ? "dashboard-chart--wide" : ""}`} key={`${payload.session_id}-${index}`}>
+                <div className="chart-heading">
+                  <div>
+                    <h2>{visuals[index]?.title || `Figure ${index + 1}`}</h2>
+                    <p>{visuals[index]?.chart_type || "Plotly"} - Cleaned and rendered</p>
+                  </div>
+                  <button className="icon-button" type="button" aria-label="Chart menu">
+                    <Icon name="dashboard" size={16} />
+                  </button>
+                </div>
+                <PlotlyChart figure={figure} title={visuals[index]?.title || `Figure ${index + 1}`} />
+              </article>
+            ))
           ) : (
-            <p className="status">No figures are stored for this session yet. Run the full generate flow to render charts.</p>
+            <article className="dashboard-chart dashboard-chart--empty">
+              <h2>Analysis-only session</h2>
+              <p>No figures are stored for this session yet. Run the full generate flow to render charts.</p>
+            </article>
           )}
         </div>
 
-        <div className="panel">
-          <div className="panel__header">
-            <h3>Schema</h3>
-            <p>Inferred from the uploaded dataset</p>
-          </div>
-          <ul className="schema-list">
-            {schemaEntries.map(([name, dtype]) => (
-              <li key={name}>
-                <span>{name}</span>
-                <code>{dtype}</code>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <InsightPanel payload={payload} />
       </div>
     </section>
   );

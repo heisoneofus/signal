@@ -1,4 +1,34 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+export function resolveApiBaseUrl({
+  explicitBaseUrl = import.meta.env.VITE_API_BASE_URL || "",
+  isDev = import.meta.env.DEV,
+} = {}) {
+  const normalizedBaseUrl = explicitBaseUrl.trim();
+  if (normalizedBaseUrl) {
+    return normalizedBaseUrl.replace(/\/$/, "");
+  }
+  return isDev ? "http://127.0.0.1:8000" : "/api";
+}
+
+export function shouldUseStoredUploads({
+  explicitOverride = import.meta.env.VITE_USE_STORED_UPLOADS || "",
+  isProd = import.meta.env.PROD,
+} = {}) {
+  const normalizedOverride = explicitOverride.trim().toLowerCase();
+  if (normalizedOverride === "true") {
+    return true;
+  }
+  if (normalizedOverride === "false") {
+    return false;
+  }
+  return isProd;
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
+const USE_STORED_UPLOADS = shouldUseStoredUploads();
+
+function sanitizeFilename(filename) {
+  return filename.replace(/[^a-zA-Z0-9._-]+/g, "-");
+}
 
 async function parseResponse(response) {
   const contentType = response.headers?.get?.("content-type") || "application/json";
@@ -7,7 +37,7 @@ async function parseResponse(response) {
   if (!response.ok) {
     const message =
       typeof payload === "object" && payload !== null
-        ? payload.message || payload.code || "Request failed"
+        ? payload.message || payload.code || payload.error || "Request failed"
         : "Request failed";
     throw new Error(message);
   }
@@ -16,11 +46,46 @@ async function parseResponse(response) {
 }
 
 export async function apiFetch(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, options);
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, options);
+  } catch (error) {
+    const target = API_BASE_URL || "the same-origin API";
+    throw new Error(
+      `Unable to reach Signal API at ${target}. Start the backend with: uv run uvicorn backend.main:app --reload`,
+      { cause: error },
+    );
+  }
   return parseResponse(response);
 }
 
+async function uploadDatasetToBlob(file) {
+  const { upload } = await import("@vercel/blob/client");
+  const timestamp = Date.now();
+  const safeName = sanitizeFilename(file.name || "dataset.csv");
+  return upload(`uploads/${timestamp}-${safeName}`, file, {
+    access: "private",
+    handleUploadUrl: "/api/uploads",
+    multipart: true,
+  });
+}
+
 export async function uploadDataset(path, file, contextText) {
+  if (USE_STORED_UPLOADS) {
+    const uploaded = await uploadDatasetToBlob(file);
+    return apiFetch(`${path}/stored`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        dataset_key: uploaded.pathname,
+        filename: file.name || "dataset.csv",
+        context_text: contextText.trim() || null,
+      }),
+    });
+  }
+
   const formData = new FormData();
   formData.append("dataset", file);
   if (contextText.trim()) {

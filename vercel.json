@@ -3,7 +3,7 @@
   "buildCommand": "npm ci --prefix frontend && npm run build --prefix frontend",
   "outputDirectory": "frontend/dist",
   "functions": {
-    "api/index.py": {
+    "api/**/*.py": {
       "maxDuration": 300,
       "excludeFiles": "{.git/**,.idea/**,.pytest_cache/**,.venv/**,__pycache__/**,frontend/**,node_modules/**,logs/**,outputs/**,sample_data/**,tests/**}"
     },
@@ -13,7 +13,7 @@
   },
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/:path((?!api(?:/|$)).*)",
       "destination": "/index.html"
     }
   ]

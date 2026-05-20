@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
@@ -41,6 +41,14 @@ def create_app(root_dir: Path | None = None) -> FastAPI:
     service = LazyApplicationService(root_dir=resolved_root)
 
     app = FastAPI(title="Signal API", version="0.1.0")
+
+    @app.middleware("http")
+    async def normalize_vercel_api_prefix(request: Request, call_next):
+        if request.scope["path"] == "/api":
+            request.scope["path"] = "/"
+        elif request.scope["path"].startswith("/api/"):
+            request.scope["path"] = request.scope["path"][4:]
+        return await call_next(request)
     app.state.service = service
     app.add_middleware(
         CORSMiddleware,

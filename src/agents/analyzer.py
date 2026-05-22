@@ -62,7 +62,11 @@ def _heuristic_analysis(df: pd.DataFrame, description: str | None) -> AnalysisRe
     time_fields = _detect_time_fields(df)
     identifier_fields = _detect_identifier_fields(df)
     numeric_cols = [col for col in all_numeric_cols if col not in identifier_fields]
-    categorical_cols = [col for col in df.columns if col not in all_numeric_cols and col not in identifier_fields]
+    categorical_cols = [
+        col
+        for col in df.columns
+        if col not in all_numeric_cols and col not in identifier_fields and col not in time_fields
+    ]
 
     variances = (
         df[numeric_cols].var(numeric_only=True).sort_values(ascending=False) if numeric_cols else pd.Series()

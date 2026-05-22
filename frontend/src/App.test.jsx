@@ -14,6 +14,7 @@ describe("App routing", () => {
 
     expect(screen.getByRole("heading", { name: /upload your data/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /upload csv/i })).toHaveAttribute("href", "/upload");
+    expect(screen.getByTestId("landing-gradient-wave")).toHaveAttribute("aria-hidden", "true");
   });
 
   it("renders the dataset workflow at the upload route", () => {
@@ -25,5 +26,6 @@ describe("App routing", () => {
 
     expect(screen.getByLabelText(/dataset file/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /generate dashboard/i })).toBeInTheDocument();
+    expect(screen.getByTestId("route-transition")).toHaveAttribute("data-route-path", "/upload");
   });
 });

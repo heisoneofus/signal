@@ -169,14 +169,56 @@ code {
   padding: 30px clamp(16px, 4vw, 40px) 56px;
 }
 
+.route-transition {
+  animation: route-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .landing-page {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   min-height: 100vh;
   display: grid;
   align-items: center;
   padding: clamp(26px, 6vw, 72px);
+  background:
+    linear-gradient(rgba(0, 212, 146, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.04) 1px, transparent 1px),
+    linear-gradient(180deg, #020618 0%, #071021 56%, #020618 100%);
+  background-size: 48px 48px, 48px 48px, auto;
+}
+
+.landing-gradient-wave {
+  position: absolute;
+  inset: -22%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.86;
+  background:
+    linear-gradient(
+      112deg,
+      rgba(0, 212, 146, 0.2) 0%,
+      rgba(56, 189, 248, 0.16) 19%,
+      rgba(124, 134, 255, 0.22) 42%,
+      rgba(152, 16, 250, 0.18) 61%,
+      rgba(0, 212, 146, 0.12) 82%,
+      rgba(2, 6, 24, 0) 100%
+    ),
+    repeating-linear-gradient(
+      102deg,
+      rgba(255, 255, 255, 0) 0 7%,
+      rgba(125, 211, 252, 0.08) 10% 12%,
+      rgba(255, 255, 255, 0) 18% 25%
+    );
+  background-size: 170% 170%, 150% 150%;
+  filter: blur(16px) saturate(1.22);
+  transform: translate3d(-2%, -1%, 0) rotate(-3deg);
+  animation: landing-wave 18s ease-in-out infinite alternate;
 }
 
 .landing-hero {
+  position: relative;
+  z-index: 1;
   width: min(1040px, 100%);
   display: grid;
   gap: 28px;
@@ -788,7 +830,40 @@ code {
   }
 }
 
+@keyframes route-enter {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+@keyframes landing-wave {
+  0% {
+    background-position: 0% 44%, 18% 36%;
+    transform: translate3d(-4%, -2%, 0) rotate(-4deg) scale(1);
+  }
+
+  50% {
+    background-position: 72% 50%, 58% 52%;
+    transform: translate3d(3%, 1%, 0) rotate(2deg) scale(1.04);
+  }
+
+  100% {
+    background-position: 100% 56%, 92% 64%;
+    transform: translate3d(5%, -1%, 0) rotate(-1deg) scale(1.02);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .landing-gradient-wave,
+  .route-transition,
   .processing-icon,
   .processing-progress span,
   .processing-step--active span,
@@ -797,6 +872,7 @@ code {
     animation: none;
   }
 
+  .route-transition,
   .processing-progress span,
   .processing-step {
     transition: none;

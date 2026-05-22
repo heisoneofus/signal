@@ -20,7 +20,7 @@ export function shouldUseStoredUploads({
   if (normalizedOverride === "false") {
     return false;
   }
-  return isProd;
+  return false;
 }
 
 const API_BASE_URL = resolveApiBaseUrl();

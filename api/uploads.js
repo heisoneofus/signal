@@ -10,6 +10,10 @@ const ALLOWED_CONTENT_TYPES = [
   "application/parquet",
 ];
 
+function resolveBlobToken() {
+  return process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL_BLOB_READ_WRITE_TOKEN;
+}
+
 export default async function handler(request) {
   const body = await request.json();
 
@@ -17,6 +21,7 @@ export default async function handler(request) {
     const jsonResponse = await handleUpload({
       body,
       request,
+      token: resolveBlobToken(),
       onBeforeGenerateToken: async (pathname) => {
         if (!pathname.startsWith("uploads/")) {
           throw new Error("Uploads must be stored under the uploads/ prefix.");

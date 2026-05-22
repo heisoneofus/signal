@@ -242,7 +242,7 @@ class Orchestrator:
             return None
 
         heatmap_spec = next((spec for spec in analysis.design.visuals if spec.chart_type == "heatmap"), None)
-        if heatmap_spec and heatmap_spec.x and heatmap_spec.y:
+        if heatmap_spec and heatmap_spec.x and heatmap_spec.y and heatmap_spec.x != heatmap_spec.y:
             values = heatmap_spec.color if heatmap_spec.color in analysis.data_schema else metric_candidates[0]
             if values in analysis.data_schema:
                 return ToolCall(

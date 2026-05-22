@@ -115,6 +115,67 @@ def test_generate_and_update_endpoints_return_plotly_json(tmp_path: Path) -> Non
     assert len(serialized_figures) == len(updated["figures"])
 
 
+def test_vercel_api_prefix_accepts_direct_generate_upload(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+
+    response = client.post(
+        "/api/generate",
+        files={"dataset": ("support.csv", io.BytesIO(b"date,tickets\n2026-04-01,42\n2026-04-02,51\n"), "text/csv")},
+        data={"context_text": "Show ticket volume over time."},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["session_id"].startswith("session_")
+    assert payload["figures"]
+    assert payload["dashboard_spec"]["visuals"]
+
+
+def test_generate_endpoint_with_heuristic_time_series_does_not_invalid_pivot(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_ADMIN_KEY", raising=False)
+    client = _client(tmp_path)
+
+    response = client.post(
+        "/generate",
+        files={
+            "dataset": (
+                "support_timeseries.csv",
+                io.BytesIO(
+                    b"date,channel,severity,tickets_created,backlog_open\n"
+                    b"2026-03-01,email,normal,42,118\n"
+                    b"2026-03-01,chat,normal,68,37\n"
+                    b"2026-03-02,email,normal,47,120\n"
+                    b"2026-03-02,chat,high,73,41\n"
+                ),
+                "text/csv",
+            )
+        },
+        data={"context_text": "Build a support operations dashboard."},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["figures"]
+    assert all(visual["x"] != visual["y"] for visual in payload["dashboard_spec"]["visuals"] if visual["chart_type"] == "heatmap")
+
+
+def test_vercel_nested_api_entrypoints_cover_frontend_routes() -> None:
+    repo_root = Path(__file__).resolve().parent.parent
+    entrypoints = [
+        repo_root / "api" / "analyze" / "[mode].py",
+        repo_root / "api" / "artifacts" / "[session_id]" / "[artifact_type].py",
+        repo_root / "api" / "generate" / "[mode].py",
+        repo_root / "api" / "sessions" / "[session_id].py",
+    ]
+
+    for entrypoint in entrypoints:
+        assert entrypoint.read_text(encoding="utf-8").strip() == "from backend.main import app"
+
+
 def test_generate_stored_endpoint_processes_preuploaded_dataset(tmp_path: Path) -> None:
     app = create_app(root_dir=tmp_path)
     app.state.service.artifact_store.write_bytes(

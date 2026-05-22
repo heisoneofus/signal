@@ -107,6 +107,28 @@ class AnalyzerTests(unittest.TestCase):
         self.assertIn("amount", result.metrics.primary_metrics + result.metrics.secondary_metrics)
         self.assertNotIn("transaction_id", result.metrics.primary_metrics)
 
+    def test_run_analysis_heuristic_keeps_time_fields_out_of_dimensions(self) -> None:
+        with patch("src.agents.analyzer.OpenAI", None):
+            analyzer = Analyzer(self.config)
+
+        df = pd.DataFrame(
+            {
+                "date": ["2026-03-01", "2026-03-01", "2026-03-02", "2026-03-02"],
+                "channel": ["email", "chat", "email", "chat"],
+                "tickets_created": [42, 68, 47, 73],
+                "backlog_open": [118, 37, 120, 41],
+            }
+        )
+        logger_ctx = _DummyLogger()
+
+        result = analyzer.run_analysis(df, None, logger_ctx)
+        heatmap = next(visual for visual in result.design.visuals if visual.chart_type == "heatmap")
+
+        self.assertIn("date", result.metrics.time_fields)
+        self.assertNotIn("date", result.metrics.dimensions)
+        self.assertEqual(heatmap.x, "date")
+        self.assertEqual(heatmap.y, "channel")
+
     def test_run_analysis_falls_back_when_llm_parse_fails(self) -> None:
         class _FakeResponses:
             def parse(self, **kwargs):

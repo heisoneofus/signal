@@ -1,0 +1,17 @@
+customer_id,signup_date,segment,region,monthly_spend_usd,sessions_30d,churn_risk_score,nps_score,last_login_date,support_tickets_30d,notes
+CUST-001,2025-10-12,SMB,North,249,18,0.21,8,2026-04-20,1,steady usage
+CUST-002,2025-11-03,Enterprise,West,1840,42,0.08,9,2026-04-22,0,expansion candidate
+CUST-003,2026-01-18,SMB,South,,7,0.64,3,2026-03-30,5,missing spend from billing sync
+CUST-004,2025-08-29,Mid-Market,East,760,,0.31,,2026-04-17,2,missing engagement snapshot
+CUST-005,2025-07-14,Enterprise,North,99999,51,0.04,10,2026-04-21,0,extreme enterprise invoice outlier
+CUST-006,2026-02-02,SMB,,180,2,0.82,2,2026-02-27,8,region missing and high risk
+CUST-007,2025-12-09,Mid-Market,West,690,25,,7,2026-04-19,1,missing churn score
+CUST-008,2026-03-01,SMB,East,0,0,0.91,1,,11,no login since signup
+CUST-009,2025-09-22,Enterprise,South,2130,47,0.12,9,2026-04-23,1,strong adoption
+CUST-010,2026-01-07,Mid-Market,North,840,19,0.27,6,2026-04-15,3,possible duplicate account
+CUST-010,2026-01-07,Mid-Market,North,840,19,0.27,6,2026-04-15,3,possible duplicate account
+CUST-011,2025-06-30,Enterprise,East,1675,39,0.18,8,2026-04-18,2,stable
+CUST-012,2026-02-15,SMB,West,95,1,0.88,,2026-03-02,9,low activity and missing nps
+CUST-013,2025-05-20,Mid-Market,South,720,28,0.35,5,2026-04-08,4,needs adoption review
+CUST-014,2025-04-11,Enterprise,North,2410,56,0.06,10,2026-04-24,0,healthy strategic account
+CUST-015,2026-03-19,SMB,East,,4,0.73,4,2026-03-28,6,billing data delayed

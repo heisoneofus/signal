@@ -1,3 +1,4 @@
+import React from "react";
 import { Link } from "react-router-dom";
 
 import { Icon } from "../components/Icons";
@@ -5,6 +6,7 @@ import { Icon } from "../components/Icons";
 export function LandingPage() {
   return (
     <main className="landing-page">
+      <div className="landing-gradient-wave" data-testid="landing-gradient-wave" aria-hidden="true" />
       <section className="landing-hero" aria-labelledby="landing-title">
         <div className="signal-pill">
           <Icon name="signal" size={16} />

@@ -4,6 +4,7 @@
 __pycache__/
 frontend/node_modules/
 frontend/dist/
+frontend/.vite/
 node_modules/
 *.py[cod]
 *.pyo
@@ -16,6 +17,7 @@ outputs/
 
 uv.lock
 *.csv
+!sample_data/e2e_mock_datasets/**/*.csv
 .git/
 .DS_Store
 Thumbs.db

@@ -187,6 +187,12 @@ See root-level docs for discoverability and prompt/orchestration guidance:
 - Clear axis labels, titles, and legends
 - Consistent spacing and typography (use Dash Bootstrap Components)
 
+## Testing Requirements
+- When working on new features or bug fixes, run the relevant unit tests before handoff.
+- For Python/backend/core changes, run `uv run pytest -q` or a focused `uv run pytest <path> -q` while iterating.
+- For frontend changes, run `npm test --prefix frontend` or a focused Vitest invocation while iterating.
+- For rendered frontend behavior, also run `npm run build --prefix frontend` and perform browser workflow QA when the change affects user-visible flows.
+
 ## Technology Stack
 
 **Core:**

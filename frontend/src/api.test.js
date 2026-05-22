@@ -28,8 +28,9 @@ describe("api helpers", () => {
     expect(shouldUseStoredUploads({ explicitOverride: "true", isProd: false })).toBe(true);
   });
 
-  it("enables stored uploads by default in production", () => {
-    expect(shouldUseStoredUploads({ explicitOverride: "", isProd: true })).toBe(true);
+  it("keeps direct API uploads enabled in production unless stored uploads are explicit", () => {
+    expect(shouldUseStoredUploads({ explicitOverride: "", isProd: true })).toBe(false);
+    expect(shouldUseStoredUploads({ explicitOverride: "true", isProd: true })).toBe(true);
     expect(shouldUseStoredUploads({ explicitOverride: "false", isProd: true })).toBe(false);
   });
 });

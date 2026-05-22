@@ -1,0 +1,13 @@
+event_id,event_time,user_id,session_id,event_name,plan,device,geo,properties,items,revenue_usd,duration_ms
+evt-1001,2026-04-01T09:12:04Z,u-1042,s-9001,page_view,free,desktop,US,"{'utm': {'source': 'newsletter', 'campaign': 'q2_reactivation'}, 'page': '/dashboard', 'experiment': 'layout_b'}","[]",0,842
+evt-1002,2026-04-01T09:13:18Z,u-1042,s-9001,generate_dashboard,free,desktop,US,"{'dataset': {'type': 'csv', 'rows': 1260, 'columns': 18}, 'success': True, 'template': 'executive'}","[{'name': 'chart', 'count': 4}, {'name': 'filter', 'count': 2}]",0,9340
+evt-1003,2026-04-01T10:04:55Z,u-2077,s-9002,page_view,team,mobile,CA,"{'utm': {'source': 'paid_search', 'campaign': 'analytics_trial'}, 'page': '/upload', 'experiment': 'control'}","[]",0,612
+evt-1004,2026-04-01T10:08:31Z,u-2077,s-9002,upgrade_started,team,mobile,CA,"{'billing': {'cycle': 'annual', 'seats': 5}, 'coupon': 'SPRING10'}","[{'name': 'seat', 'count': 5}]",0,3105
+evt-1005,2026-04-01T10:12:49Z,u-2077,s-9002,purchase_completed,team,mobile,CA,"{'billing': {'cycle': 'annual', 'seats': 5}, 'payment': {'method': 'card', 'country': 'CA'}}","[{'name': 'team_plan', 'count': 1}, {'name': 'seat', 'count': 5}]",1495,4280
+evt-1006,2026-04-02T11:22:10Z,u-1188,s-9003,page_view,free,tablet,GB,"{'utm': {'source': 'organic', 'campaign': 'none'}, 'page': '/examples', 'experiment': 'layout_b'}","[]",0,990
+evt-1007,2026-04-02T11:25:44Z,u-1188,s-9003,generate_dashboard,free,tablet,GB,"{'dataset': {'type': 'xlsx', 'rows': 540, 'columns': 9}, 'success': False, 'error': 'missing_date_column'}","[{'name': 'chart', 'count': 1}]",0,12150
+evt-1008,2026-04-02T14:03:27Z,u-3310,s-9004,page_view,enterprise,desktop,US,"{'utm': {'source': 'webinar', 'campaign': 'finance_ops'}, 'page': '/integrations', 'experiment': 'control'}","[]",0,734
+evt-1009,2026-04-02T14:07:08Z,u-3310,s-9004,generate_dashboard,enterprise,desktop,US,"{'dataset': {'type': 'parquet', 'rows': 84200, 'columns': 42}, 'success': True, 'template': 'operations'}","[{'name': 'chart', 'count': 8}, {'name': 'filter', 'count': 5}, {'name': 'table', 'count': 1}]",0,18420
+evt-1010,2026-04-02T14:22:16Z,u-3310,s-9004,export_dashboard,enterprise,desktop,US,"{'export': {'format': 'html', 'size_mb': 4.8}, 'shared': True}","[{'name': 'dashboard_export', 'count': 1}]",0,2901
+evt-1011,2026-04-03T08:41:30Z,u-4099,s-9005,page_view,team,desktop,DE,"{'utm': {'source': 'partner', 'campaign': 'emea_launch'}, 'page': '/dashboard', 'experiment': 'layout_b'}","[]",0,801
+evt-1012,2026-04-03T08:46:02Z,u-4099,s-9005,purchase_completed,team,desktop,DE,"{'billing': {'cycle': 'monthly', 'seats': 3}, 'payment': {'method': 'invoice', 'country': 'DE'}}","[{'name': 'team_plan', 'count': 1}, {'name': 'seat', 'count': 3}]",327,3660

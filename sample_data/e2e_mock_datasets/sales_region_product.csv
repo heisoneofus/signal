@@ -1,0 +1,25 @@
+month,region,product_category,product,channel,units_sold,gross_revenue,discount_rate,gross_margin,return_rate
+2026-01,North,Analytics,Insight Starter,self_service,84,25200,0.08,0.62,0.03
+2026-01,North,Automation,Workflow Pro,partner,37,25900,0.12,0.58,0.04
+2026-01,South,Analytics,Insight Starter,self_service,71,21300,0.05,0.64,0.02
+2026-01,South,Automation,Workflow Pro,direct_sales,45,31500,0.10,0.57,0.05
+2026-01,East,Analytics,Insight Plus,direct_sales,28,28000,0.09,0.66,0.01
+2026-01,West,Data Platform,Lakehouse Sync,partner,19,38000,0.15,0.52,0.06
+2026-02,North,Analytics,Insight Starter,self_service,91,27300,0.07,0.63,0.02
+2026-02,North,Data Platform,Lakehouse Sync,direct_sales,24,48000,0.11,0.55,0.03
+2026-02,South,Analytics,Insight Plus,direct_sales,34,34000,0.08,0.65,0.02
+2026-02,South,Automation,Workflow Pro,partner,39,27300,0.14,0.56,0.05
+2026-02,East,Analytics,Insight Starter,self_service,78,23400,0.06,0.64,0.03
+2026-02,West,Automation,Workflow Lite,self_service,102,20400,0.04,0.60,0.04
+2026-03,North,Analytics,Insight Plus,direct_sales,41,41000,0.10,0.67,0.02
+2026-03,North,Automation,Workflow Lite,self_service,117,23400,0.05,0.61,0.03
+2026-03,South,Data Platform,Lakehouse Sync,partner,22,44000,0.13,0.54,0.04
+2026-03,South,Automation,Workflow Pro,direct_sales,52,36400,0.09,0.58,0.05
+2026-03,East,Analytics,Insight Starter,self_service,85,25500,0.06,0.65,0.02
+2026-03,West,Analytics,Insight Plus,direct_sales,36,36000,0.08,0.66,0.02
+2026-04,North,Data Platform,Lakehouse Sync,direct_sales,29,58000,0.12,0.56,0.03
+2026-04,South,Analytics,Insight Starter,self_service,82,24600,0.05,0.64,0.02
+2026-04,East,Automation,Workflow Pro,partner,44,30800,0.16,0.55,0.06
+2026-04,East,Data Platform,Lakehouse Sync,direct_sales,21,42000,0.10,0.57,0.02
+2026-04,West,Automation,Workflow Lite,self_service,123,24600,0.04,0.61,0.03
+2026-04,West,Analytics,Insight Plus,partner,31,31000,0.11,0.63,0.04

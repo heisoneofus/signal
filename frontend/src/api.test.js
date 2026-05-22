@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { apiFetch, resolveApiBaseUrl, shouldUseStoredUploads } from "./api";
+import { apiFetch, resolveApiBaseUrl, selectUploadStrategy, shouldUseStoredUploads } from "./api";
 
 describe("api helpers", () => {
   it("prefers an explicit API base URL override", () => {
@@ -32,5 +32,29 @@ describe("api helpers", () => {
     expect(shouldUseStoredUploads({ explicitOverride: "", isProd: true })).toBe(false);
     expect(shouldUseStoredUploads({ explicitOverride: "true", isProd: true })).toBe(true);
     expect(shouldUseStoredUploads({ explicitOverride: "false", isProd: true })).toBe(false);
+  });
+
+  it("uses direct uploads by default but switches large production files to Blob storage", () => {
+    expect(
+      selectUploadStrategy({
+        explicitOverride: "",
+        isProd: true,
+        fileSize: 2 * 1024 * 1024,
+      }),
+    ).toBe("direct");
+    expect(
+      selectUploadStrategy({
+        explicitOverride: "",
+        isProd: true,
+        fileSize: 6 * 1024 * 1024,
+      }),
+    ).toBe("blob");
+    expect(
+      selectUploadStrategy({
+        explicitOverride: "false",
+        isProd: true,
+        fileSize: 6 * 1024 * 1024,
+      }),
+    ).toBe("direct");
   });
 });

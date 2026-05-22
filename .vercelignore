@@ -2,13 +2,17 @@
 .idea
 .pytest_cache
 .venv
+.vercel
+.vercel_python_packages
 __pycache__
 build
 dist
+node_modules
 frontend/node_modules
 frontend/dist
 logs
 outputs
+tmp_no_key_repro
 pyproject.toml
 sample_data
 tests

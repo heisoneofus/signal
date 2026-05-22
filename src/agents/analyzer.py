@@ -23,6 +23,7 @@ except ImportError:  # pragma: no cover - optional dependency
 
 
 _IDENTIFIER_NAME_PATTERN = re.compile(r"(^id$|_id$|^id_|uuid|guid|identifier|transaction_id|person_id|user_id)", re.IGNORECASE)
+_SUM_METRIC_PATTERN = re.compile(r"(count|total|sum|sales|revenue|amount|volume|tickets?|orders?|units?)", re.IGNORECASE)
 
 
 def _looks_like_identifier_name(column: str) -> bool:
@@ -55,6 +56,52 @@ def _detect_time_fields(df: pd.DataFrame) -> list[str]:
             if parsed.notna().mean() > 0.7:
                 time_fields.append(column)
     return time_fields
+
+
+def _humanize_column(column: str) -> str:
+    return re.sub(r"\s+", " ", column.replace("_", " ").replace("-", " ")).strip().title()
+
+
+def _time_grain_for_field(df: pd.DataFrame, column: str) -> str | None:
+    parsed = pd.to_datetime(df[column], errors="coerce", format="mixed")
+    if parsed.notna().sum() == 0:
+        return None
+    return "day"
+
+
+def _default_aggregation(metric: str) -> str:
+    return "sum" if _SUM_METRIC_PATTERN.search(metric) else "mean"
+
+
+def _has_repeated_time_values(df: pd.DataFrame, column: str) -> bool:
+    parsed = pd.to_datetime(df[column], errors="coerce", format="mixed")
+    if parsed.notna().sum() == 0:
+        return bool(df[column].duplicated().any())
+    return bool(parsed.dt.floor("D").duplicated().any())
+
+
+def _best_time_split_category(df: pd.DataFrame, categorical_cols: list[str], time_column: str) -> str | None:
+    for column in categorical_cols:
+        cardinality = int(df[column].nunique(dropna=True))
+        if not 2 <= cardinality <= 12:
+            continue
+        grouped = df.groupby(time_column, dropna=False)[column].nunique(dropna=True)
+        if not grouped.empty and grouped.max() > 1:
+            return column
+    return None
+
+
+def _time_series_title(metric: str, category: str | None, time_grain: str | None) -> str:
+    metric_label = _humanize_column(metric)
+    prefix = {"day": "Daily", "week": "Weekly", "month": "Monthly"}.get(time_grain or "", "")
+    base = f"{prefix} {metric_label}".strip()
+    if category:
+        return f"{base} by {_humanize_column(category)}"
+    return f"{base} Over Time"
+
+
+def _relationship_title(metric: str, dimension: str) -> str:
+    return f"{_humanize_column(metric)} by {_humanize_column(dimension)}"
 
 
 def _heuristic_analysis(df: pd.DataFrame, description: str | None) -> AnalysisReport:
@@ -128,12 +175,19 @@ def _heuristic_analysis(df: pd.DataFrame, description: str | None) -> AnalysisRe
 
     visuals: list[VisualSpec] = []
     if time_fields and primary_metrics:
+        time_column = time_fields[0]
+        split_category = _best_time_split_category(df, categorical_cols, time_column)
+        time_grain = _time_grain_for_field(df, time_column) if _has_repeated_time_values(df, time_column) else None
+        aggregation = _default_aggregation(primary_metrics[0]) if _has_repeated_time_values(df, time_column) else None
         visuals.append(
             VisualSpec(
-                title=f"{primary_metrics[0]} over time",
+                title=_time_series_title(primary_metrics[0], split_category, time_grain),
                 chart_type="line",
-                x=time_fields[0],
+                x=time_column,
                 y=primary_metrics[0],
+                color=split_category,
+                aggregation=aggregation,  # type: ignore[arg-type]
+                time_grain=time_grain,  # type: ignore[arg-type]
             )
         )
     if categorical_cols and primary_metrics:
@@ -142,7 +196,7 @@ def _heuristic_analysis(df: pd.DataFrame, description: str | None) -> AnalysisRe
         prefers_pie = 0 < cardinality <= 8
         visuals.append(
             VisualSpec(
-                title=f"{primary_metrics[0]} by {category}",
+                title=_relationship_title(primary_metrics[0], category),
                 chart_type="pie" if prefers_pie else "bar",
                 x=category,
                 y=primary_metrics[0],
@@ -152,7 +206,7 @@ def _heuristic_analysis(df: pd.DataFrame, description: str | None) -> AnalysisRe
     if time_fields and categorical_cols and primary_metrics:
         visuals.append(
             VisualSpec(
-                title=f"{primary_metrics[0]} heatmap by {categorical_cols[0]} and {time_fields[0]}",
+                title=f"{_humanize_column(primary_metrics[0])} Heatmap by {_humanize_column(categorical_cols[0])} and {_humanize_column(time_fields[0])}",
                 chart_type="heatmap",
                 x=time_fields[0],
                 y=categorical_cols[0],
@@ -162,7 +216,7 @@ def _heuristic_analysis(df: pd.DataFrame, description: str | None) -> AnalysisRe
     if len(primary_metrics) >= 2:
         visuals.append(
             VisualSpec(
-                title=f"{primary_metrics[0]} vs {primary_metrics[1]}",
+                title=f"{_humanize_column(primary_metrics[0])} vs {_humanize_column(primary_metrics[1])}",
                 chart_type="scatter",
                 x=primary_metrics[0],
                 y=primary_metrics[1],
@@ -171,7 +225,7 @@ def _heuristic_analysis(df: pd.DataFrame, description: str | None) -> AnalysisRe
     if not visuals and numeric_cols:
         visuals.append(
             VisualSpec(
-                title=f"Distribution of {numeric_cols[0]}",
+                title=f"Distribution of {_humanize_column(numeric_cols[0])}",
                 chart_type="histogram",
                 x=numeric_cols[0],
             )
@@ -183,7 +237,7 @@ def _heuristic_analysis(df: pd.DataFrame, description: str | None) -> AnalysisRe
         layout="grid",
         visuals=visuals,
         filters=filters,
-        notes="Heuristic design (LLM unavailable).",
+        notes="Heuristic-only design generated from deterministic profiling because OpenAI analysis was unavailable.",
     )
 
     schema = {col: str(dtype) for col, dtype in df.dtypes.items()}
@@ -200,11 +254,13 @@ class Analyzer:
     def __init__(self, config: AppConfig):
         self.config = config
         self.client = None
-        if OpenAI is not None:
+        if OpenAI is not None and self.config.llm.api_key:
             try:
                 self.client = OpenAI(api_key=self.config.llm.api_key)
             except Exception as exc:  # pragma: no cover - network/env dependent
                 logger.warning("OpenAI client unavailable: {}", exc)
+        elif OpenAI is not None:
+            logger.info("OPENAI_API_KEY is not configured; using heuristic-only analysis mode.")
 
     def run_analysis(self, df: pd.DataFrame, description: str | None, logger_ctx) -> AnalysisReport:
         if self.client is None:

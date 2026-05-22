@@ -982,6 +982,16 @@ code {
   min-height: 300px;
 }
 
+.chart-loading {
+  min-height: 300px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #080f20;
+}
+
 .insight-panel {
   position: sticky;
   top: 86px;

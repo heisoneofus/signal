@@ -12,7 +12,9 @@ node_modules/
 *.log
 
 logs/
+output/
 outputs/
+test-results/
 .vercel_python_packages/
 
 uv.lock

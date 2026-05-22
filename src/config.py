@@ -26,6 +26,8 @@ class AppConfig:
     @staticmethod
     def default(root_dir: Path) -> "AppConfig":
         configured_work_dir = os.getenv("SIGNAL_WORK_DIR", "").strip()
+        llm_api_key = os.getenv("SIGNAL_OPENAI_API_KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip() or None
+        llm_model = os.getenv("SIGNAL_OPENAI_MODEL", "").strip() or LLMConfig.model
         if configured_work_dir:
             work_dir = Path(configured_work_dir).expanduser().resolve()
         elif os.getenv("VERCEL"):
@@ -37,4 +39,5 @@ class AppConfig:
             work_dir=work_dir,
             logs_dir=work_dir / "logs",
             outputs_dir=work_dir / "outputs",
+            llm=LLMConfig(model=llm_model, api_key=llm_api_key),
         )

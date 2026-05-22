@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -64,8 +65,9 @@ class AnalyzerTests(unittest.TestCase):
             def __new__(cls, *args, **kwargs):
                 return _FakeClient()
 
+        config = replace(self.config, llm=replace(self.config.llm, api_key="sk-test"))
         with patch("src.agents.analyzer.OpenAI", _FakeOpenAI):
-            analyzer = Analyzer(self.config)
+            analyzer = Analyzer(config)
 
         logger_ctx = _DummyLogger()
         result = analyzer.run_analysis(self.df, None, logger_ctx)
@@ -75,7 +77,7 @@ class AnalyzerTests(unittest.TestCase):
         self.assertIn("sales", result.data_schema)
         self.assertIn("region", result.data_schema)
         self.assertIs(parse_kwargs.get("text_format"), LLMAnalysisResponse)
-        self.assertEqual(parse_kwargs.get("model"), self.config.llm.model)
+        self.assertEqual(parse_kwargs.get("model"), config.llm.model)
         prompt_payload = json.loads(str(parse_kwargs.get("input")))
         instructions = " ".join(prompt_payload.get("instructions", []))
         self.assertIn("Use only column names that exist in the provided schema", instructions)
@@ -128,6 +130,30 @@ class AnalyzerTests(unittest.TestCase):
         self.assertNotIn("date", result.metrics.dimensions)
         self.assertEqual(heatmap.x, "date")
         self.assertEqual(heatmap.y, "channel")
+
+    def test_run_analysis_heuristic_rolls_up_repeated_dates_by_useful_category(self) -> None:
+        with patch("src.agents.analyzer.OpenAI", None):
+            analyzer = Analyzer(self.config)
+
+        df = pd.DataFrame(
+            {
+                "date": ["2026-03-01", "2026-03-01", "2026-03-02", "2026-03-02"],
+                "channel": ["email", "chat", "email", "chat"],
+                "ticket_count": [42, 68, 47, 73],
+            }
+        )
+        logger_ctx = _DummyLogger()
+
+        result = analyzer.run_analysis(df, None, logger_ctx)
+        time_series = next(visual for visual in result.design.visuals if visual.chart_type == "line")
+
+        self.assertEqual(time_series.x, "date")
+        self.assertEqual(time_series.y, "ticket_count")
+        self.assertEqual(time_series.color, "channel")
+        self.assertEqual(time_series.aggregation, "sum")
+        self.assertEqual(time_series.time_grain, "day")
+        self.assertEqual(time_series.title, "Daily Ticket Count by Channel")
+        self.assertIn("Heuristic-only", result.design.notes)
 
     def test_run_analysis_falls_back_when_llm_parse_fails(self) -> None:
         class _FakeResponses:

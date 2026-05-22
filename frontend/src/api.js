@@ -23,8 +23,28 @@ export function shouldUseStoredUploads({
   return false;
 }
 
+export function selectUploadStrategy({
+  explicitOverride = import.meta.env.VITE_USE_STORED_UPLOADS || "",
+  thresholdMb = import.meta.env.VITE_STORED_UPLOAD_THRESHOLD_MB || "4.5",
+  isProd = import.meta.env.PROD,
+  fileSize = 0,
+} = {}) {
+  const normalizedOverride = explicitOverride.trim().toLowerCase();
+  if (normalizedOverride === "true") {
+    return "blob";
+  }
+  if (normalizedOverride === "false") {
+    return "direct";
+  }
+
+  const thresholdBytes = Number.parseFloat(thresholdMb) * 1024 * 1024;
+  if (isProd && Number.isFinite(thresholdBytes) && fileSize > thresholdBytes) {
+    return "blob";
+  }
+  return "direct";
+}
+
 const API_BASE_URL = resolveApiBaseUrl();
-const USE_STORED_UPLOADS = shouldUseStoredUploads();
 
 function sanitizeFilename(filename) {
   return filename.replace(/[^a-zA-Z0-9._-]+/g, "-");
@@ -71,7 +91,7 @@ async function uploadDatasetToBlob(file) {
 }
 
 export async function uploadDataset(path, file, contextText) {
-  if (USE_STORED_UPLOADS) {
+  if (selectUploadStrategy({ fileSize: file.size }) === "blob") {
     const uploaded = await uploadDatasetToBlob(file);
     return apiFetch(`${path}/stored`, {
       method: "POST",

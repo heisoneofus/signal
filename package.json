@@ -5,7 +5,14 @@
   "engines": {
     "node": ">=20"
   },
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:preview": "playwright test --project=chromium"
+  },
   "dependencies": {
     "@vercel/blob": "^2.3.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
   }
 }

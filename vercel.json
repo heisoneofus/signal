@@ -5,7 +5,7 @@
   "functions": {
     "api/**/*.py": {
       "maxDuration": 300,
-      "excludeFiles": "{.git/**,.idea/**,.pytest_cache/**,.venv/**,__pycache__/**,frontend/**,node_modules/**,logs/**,outputs/**,sample_data/**,tests/**}"
+      "excludeFiles": "{.git/**,.idea/**,.pytest_cache/**,.venv/**,.vercel/**,.vercel_python_packages/**,__pycache__/**,dist/**,frontend/**,frontend/dist/**,node_modules/**,logs/**,outputs/**,sample_data/**,tests/**,tmp_no_key_repro/**}"
     },
     "api/uploads.js": {
       "maxDuration": 60

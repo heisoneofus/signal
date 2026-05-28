@@ -22,27 +22,34 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
+const routerFuture = { v7_relativeSplatPath: true, v7_startTransition: true };
+
 describe("frontend pages", () => {
   beforeEach(() => {
     navigateMock.mockReset();
     global.fetch = vi.fn();
+    Object.assign(navigator, {
+      clipboard: {
+        writeText: vi.fn().mockResolvedValue(undefined),
+      },
+    });
   });
 
-  it("submits dataset generation from the run page", async () => {
+  it("submits dataset generation from the run page and opens review first", async () => {
     global.fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ session_id: "session_123" }),
     });
 
     render(
-      <MemoryRouter>
+      <MemoryRouter future={routerFuture}>
         <RunPage />
       </MemoryRouter>,
     );
 
     await userEvent.upload(screen.getByLabelText(/dataset file/i), new File(["region,sales\nEU,10"], "sales.csv", { type: "text/csv" }));
     await userEvent.type(screen.getByLabelText(/context/i), "Focus on sales by region");
-    await userEvent.click(screen.getByRole("button", { name: /generate dashboard/i }));
+    await userEvent.click(screen.getByRole("button", { name: /review draft dashboard/i }));
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
@@ -50,7 +57,31 @@ describe("frontend pages", () => {
         expect.objectContaining({ method: "POST" }),
       );
     });
-    expect(navigateMock).toHaveBeenCalledWith("/results/session_123");
+    expect(navigateMock).toHaveBeenCalledWith("/update/session_123");
+  });
+
+  it("submits analyze-only runs into the review page", async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ session_id: "session_123" }),
+    });
+
+    render(
+      <MemoryRouter future={routerFuture}>
+        <RunPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.upload(screen.getByLabelText(/dataset file/i), new File(["region,sales\nEU,10"], "sales.csv", { type: "text/csv" }));
+    await userEvent.click(screen.getByRole("button", { name: /analyze only/i }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/analyze"),
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    expect(navigateMock).toHaveBeenCalledWith("/update/session_123");
   });
 
   it("updates the processing screen while generation is running", async () => {
@@ -85,9 +116,17 @@ describe("frontend pages", () => {
           metrics: { primary_metrics: ["sales"] },
           quality: { issues: [] },
         },
+        dataset_profile: {
+          row_count: 2,
+          column_count: 2,
+          missing_cells: 0,
+          duplicate_rows: 0,
+          quality_score: 100,
+          filter_options: { region: ["EU", "US"] },
+        },
         dashboard_spec: {
           title: "Sales Overview",
-          visuals: [{ id: "visual_1", title: "Sales by Region", chart_type: "bar" }],
+          visuals: [{ id: "visual_1", title: "Sales by Region", chart_type: "bar", layout_size: "wide" }],
           filters: ["region"],
         },
         figures: [{ data: [{ x: ["EU", "US"], y: [10, 20] }], layout: { title: { text: "Sales by Region" } } }],
@@ -96,7 +135,7 @@ describe("frontend pages", () => {
     });
 
     render(
-      <MemoryRouter initialEntries={["/results/session_123"]}>
+      <MemoryRouter future={routerFuture} initialEntries={["/results/session_123"]}>
         <Routes>
           <Route path="/results/:sessionId" element={<ResultsPage />} />
         </Routes>
@@ -104,13 +143,66 @@ describe("frontend pages", () => {
     );
 
     expect(await screen.findByText(/sales overview/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /data quality assessment/i })).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(screen.getByRole("button", { name: /data quality assessment/i }));
     expect(screen.getByText(/primary metrics/i)).toBeInTheDocument();
     expect(screen.getByTestId("plotly-chart")).toBeInTheDocument();
-    expect(screen.getAllByText(/region/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /region: eu/i })).toBeInTheDocument();
+    expect(screen.queryByText(/last 7 days/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\+12\.5%/i)).not.toBeInTheDocument();
   });
 
-  it("loads sessions and submits dashboard updates", async () => {
+  it("keeps dashboard filter chips focused on readable categorical values", async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        session_id: "session_123",
+        status: "reviewed",
+        analysis: {
+          data_schema: { date: "datetime64[ns]", channel: "str", tickets: "int64" },
+          metrics: { primary_metrics: ["tickets"], dimensions: ["channel"] },
+          quality: { issues: [] },
+        },
+        dataset_profile: {
+          row_count: 2,
+          column_count: 3,
+          missing_cells: 0,
+          duplicate_rows: 0,
+          quality_score: 100,
+          filter_options: { date: ["2026-03-01", "2026-03-02"], channel: ["chat", "email_support"] },
+        },
+        dashboard_spec: {
+          title: "Support Overview",
+          visuals: [{ id: "visual_1", title: "Tickets by Channel", chart_type: "bar", layout_size: "wide" }],
+          filters: ["date", "channel"],
+        },
+        figures: [{ data: [{ x: ["chat"], y: [10] }], layout: {} }],
+        artifacts: [],
+      }),
+    });
+
+    render(
+      <MemoryRouter future={routerFuture} initialEntries={["/results/session_123"]}>
+        <Routes>
+          <Route path="/results/:sessionId" element={<ResultsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(/support overview/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /date:/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /channel: chat/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /channel: email support/i })).toBeInTheDocument();
+  });
+
+  it("loads sessions and submits chart updates before generating the final dashboard", async () => {
     global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          items: [{ session_id: "session_123", title: "Sales Overview", status: "reviewed", created_at: "now", updated_at: "now" }],
+        }),
+      })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -123,8 +215,13 @@ describe("frontend pages", () => {
           session_id: "session_123",
           status: "reviewed",
           analysis: null,
-          dashboard_spec: { title: "Sales Overview", visuals: [], filters: [] },
-          figures: [],
+          dataset_profile: { row_count: 1, column_count: 2, quality_score: 100, filter_options: { region: ["EU"] }, dimensions: ["region"] },
+          dashboard_spec: {
+            title: "Sales Overview",
+            visuals: [{ id: "visual_1", chart_type: "bar", title: "Sales by Region", layout_size: "wide" }],
+            filters: ["region"],
+          },
+          figures: [{ data: [{ x: ["EU"], y: [10] }], layout: {} }],
           artifacts: [],
         }),
       })
@@ -133,14 +230,24 @@ describe("frontend pages", () => {
         json: async () => ({
           session_id: "session_123",
           session_status: "reviewed",
-          dashboard_spec: { title: "Sales Overview", visuals: [{ chart_type: "scatter", title: "Updated" }], filters: ["region"] },
+          dashboard_spec: { title: "Sales Overview", visuals: [{ id: "visual_1", chart_type: "scatter", title: "Updated" }], filters: ["region"] },
+          figures: [{ data: [{ x: ["EU"], y: [10] }], layout: {} }],
+          artifacts: [],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          session_id: "session_123",
+          session_status: "reviewed",
+          dashboard_spec: { title: "Sales Overview", visuals: [{ id: "visual_1", chart_type: "scatter", title: "Updated" }], filters: ["region"] },
           figures: [{ data: [{ x: ["EU"], y: [10] }], layout: {} }],
           artifacts: [],
         }),
       });
 
     render(
-      <MemoryRouter initialEntries={["/sessions"]}>
+      <MemoryRouter future={routerFuture} initialEntries={["/sessions"]}>
         <Routes>
           <Route path="/sessions" element={<SessionsPage />} />
         </Routes>
@@ -150,17 +257,165 @@ describe("frontend pages", () => {
     expect(await screen.findByText(/sales overview/i)).toBeInTheDocument();
 
     render(
-      <MemoryRouter initialEntries={["/update/session_123"]}>
+      <MemoryRouter future={routerFuture} initialEntries={["/update/session_123"]}>
         <Routes>
           <Route path="/update/:sessionId" element={<UpdatePage />} />
         </Routes>
       </MemoryRouter>,
     );
 
-    expect(await screen.findByDisplayValue("session_123")).toBeInTheDocument();
-    await userEvent.type(screen.getByLabelText(/update prompt/i), "Change to a scatter chart");
-    await userEvent.click(screen.getByRole("button", { name: /apply update/i }));
+    expect(await screen.findByRole("combobox", { name: /session id/i })).toHaveValue("session_123");
+    expect(screen.getByTestId("plotly-chart")).toBeInTheDocument();
+    expect(screen.getByText(/filters and dimensions/i)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(/update prompt for sales by region/i), "Change to a scatter chart");
+    await userEvent.click(screen.getByRole("button", { name: /update sales by region/i }));
 
     expect(await screen.findByText(/scatter/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /generate dashboard/i }));
+    expect(navigateMock).toHaveBeenCalledWith("/results/session_123");
+  });
+
+  it("filters, exports, and reorders charts on the results page", async () => {
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          session_id: "session_123",
+          status: "reviewed",
+          analysis: {
+            data_schema: { region: "str", sales: "int64" },
+            metrics: { primary_metrics: ["sales"], dimensions: ["region"] },
+            quality: { issues: [] },
+          },
+          dataset_profile: {
+            row_count: 2,
+            column_count: 2,
+            missing_cells: 0,
+            duplicate_rows: 0,
+            quality_score: 100,
+            filter_options: { region: ["EU", "US"] },
+          },
+          dashboard_spec: {
+            title: "Sales Overview",
+            visuals: [
+              { id: "visual_1", title: "Sales by Region", chart_type: "bar", layout_size: "standard" },
+              { id: "visual_2", title: "Profit by Region", chart_type: "bar", layout_size: "standard" },
+            ],
+            filters: ["region"],
+          },
+          figures: [
+            { data: [{ x: ["EU", "US"], y: [10, 20] }], layout: {} },
+            { data: [{ x: ["EU", "US"], y: [4, 9] }], layout: {} },
+          ],
+          artifacts: [],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          session_id: "session_123",
+          figures: [{ data: [{ x: ["EU"], y: [10] }], layout: {} }, { data: [{ x: ["EU"], y: [4] }], layout: {} }],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          session_id: "session_123",
+          status: "reviewed",
+          analysis: null,
+          dataset_profile: { quality_score: 100, filter_options: { region: ["EU", "US"] } },
+          dashboard_spec: {
+            title: "Sales Overview",
+            visuals: [
+              { id: "visual_2", title: "Profit by Region", chart_type: "bar" },
+              { id: "visual_1", title: "Sales by Region", chart_type: "bar" },
+            ],
+            filters: ["region"],
+          },
+          figures: [
+            { data: [{ x: ["EU"], y: [4] }], layout: {} },
+            { data: [{ x: ["EU"], y: [10] }], layout: {} },
+          ],
+          artifacts: [],
+        }),
+      });
+
+    const { container } = render(
+      <MemoryRouter future={routerFuture} initialEntries={["/results/session_123"]}>
+        <Routes>
+          <Route path="/results/:sessionId" element={<ResultsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(/sales overview/i)).toBeInTheDocument();
+    expect(container.querySelector(".dashboard-content")).not.toHaveClass("dashboard-content--with-insights");
+    expect(screen.getByRole("button", { name: /data quality assessment/i })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: /drag to reorder profit by region/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /data quality assessment/i }));
+    expect(container.querySelector(".dashboard-content")).toHaveClass("dashboard-content--with-insights");
+
+    await userEvent.click(screen.getByRole("button", { name: /region: eu/i }));
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/sessions/session_123/figures"),
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /export/i }));
+    await userEvent.click(screen.getByRole("menuitem", { name: /snapshot url/i }));
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining("/results/session_123"));
+
+    await userEvent.click(screen.getByRole("button", { name: /move profit by region up/i }));
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/sessions/session_123"),
+        expect.objectContaining({ method: "PATCH" }),
+      );
+    });
+  });
+
+  it("renames dashboards from the sessions list", async () => {
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          items: [{ session_id: "session_123", title: "Sales Overview", status: "reviewed", created_at: "2026-05-28T08:00:00Z", updated_at: "now" }],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          session_id: "session_123",
+          status: "reviewed",
+          dashboard_spec: { title: "Revenue Overview", visuals: [], filters: [] },
+          figures: [],
+          artifacts: [],
+          dataset_profile: {},
+        }),
+      });
+
+    render(
+      <MemoryRouter future={routerFuture} initialEntries={["/sessions"]}>
+        <Routes>
+          <Route path="/sessions" element={<SessionsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(/created may 28, 2026/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /rename sales overview/i }));
+    await userEvent.clear(screen.getByLabelText(/dashboard name/i));
+    await userEvent.type(screen.getByLabelText(/dashboard name/i), "Revenue Overview");
+    await userEvent.click(screen.getByRole("button", { name: /save dashboard name/i }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/sessions/session_123"),
+        expect.objectContaining({ method: "PATCH" }),
+      );
+    });
+    expect(await screen.findByText(/revenue overview/i)).toBeInTheDocument();
   });
 });

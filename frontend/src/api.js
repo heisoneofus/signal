@@ -125,6 +125,32 @@ export async function fetchSessions() {
   return apiFetch("/sessions");
 }
 
+export async function patchSession(sessionId, patch) {
+  return apiFetch(`/sessions/${sessionId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function renderSessionFigures(sessionId, filters = {}) {
+  return apiFetch(`/sessions/${sessionId}/figures`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ filters }),
+  });
+}
+
+export async function finalizeSession(sessionId) {
+  return apiFetch(`/sessions/${sessionId}/generate`, {
+    method: "POST",
+  });
+}
+
 export async function updateDashboard(sessionId, prompt) {
   return apiFetch("/update", {
     method: "POST",

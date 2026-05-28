@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -46,12 +47,13 @@ class SessionDetail:
     dashboard_spec: dict[str, Any]
     figures: list[dict[str, Any]]
     artifacts: list[dict[str, str]]
+    dataset_profile: dict[str, Any]
 
 
 @dataclass
 class GenerateResult:
     session_id: str
-    analysis: AnalysisReport
+    analysis: AnalysisReport | None
     dashboard_spec: DashboardSpec
     figures: list[dict[str, Any]]
     session_status: str
@@ -83,6 +85,10 @@ def _read_description(path: Path | None) -> str | None:
     if not path.exists():
         raise FileNotFoundError(f"Description file not found: {path}")
     return path.read_text(encoding="utf-8")
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _load_for_analysis(data_path: Path, sample_rows: int) -> pd.DataFrame:
@@ -627,6 +633,107 @@ class ApplicationService:
             artifacts=self.list_artifacts(session_id, state=cli_result.session_state),
         )
 
+    def patch_session(
+        self,
+        *,
+        session_id: str,
+        title: str | None = None,
+        visual_order: list[str] | None = None,
+    ) -> SessionDetail:
+        self._hydrate_remote_session(session_id)
+        state = self._load_state(session_id)
+        if state is None:
+            raise FileNotFoundError(session_id)
+
+        current_visuals = list(state.active_spec.visuals)
+        current_figures = self._load_figures_artifact(session_id)
+        figure_by_visual_id = {
+            visual.id: current_figures[index]
+            for index, visual in enumerate(current_visuals)
+            if index < len(current_figures)
+        }
+
+        spec = state.active_spec.model_copy(deep=True)
+        if title is not None and title.strip():
+            spec.title = title.strip()
+            if state.plan is not None:
+                state.plan.design.title = spec.title
+
+        if visual_order:
+            wanted = [visual_id for visual_id in visual_order if visual_id]
+            visual_by_id = {visual.id: visual for visual in spec.visuals}
+            reordered = [visual_by_id[visual_id] for visual_id in wanted if visual_id in visual_by_id]
+            reordered.extend([visual for visual in spec.visuals if visual.id not in wanted])
+            if len(reordered) == len(spec.visuals):
+                spec.visuals = reordered
+                current_figures = [
+                    figure_by_visual_id[visual.id]
+                    for visual in reordered
+                    if visual.id in figure_by_visual_id
+                ]
+
+        state.active_spec = spec
+        if state.plan is not None:
+            state.plan.design = spec.model_copy(deep=True)
+        if state.spec_versions:
+            state.spec_versions[-1] = spec.model_copy(deep=True)
+        else:
+            state.spec_versions.append(spec.model_copy(deep=True))
+        state.updated_at = _utc_now()
+        state.decisions.append("Session metadata updated from dashboard UI.")
+
+        session_logger = SessionLogger(path=artifacts.log_path(self.config, session_id))
+        self._persist_session_artifacts(session_logger, state, figures=current_figures)
+        return self.get_session_detail(session_id)
+
+    def render_session_figures(self, *, session_id: str, filters: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+        self._hydrate_remote_session(session_id)
+        state = self._load_state(session_id)
+        if state is None:
+            raise FileNotFoundError(session_id)
+        df = self._load_dataframe_for_state(state)
+        filtered = self._apply_session_filters(df, filters or {})
+        return self._render_figures(filtered, state)
+
+    def finalize_session(self, *, session_id: str) -> GenerateResult:
+        self._hydrate_remote_session(session_id)
+        state = self._load_state(session_id)
+        if state is None:
+            raise FileNotFoundError(session_id)
+
+        figures = self._load_figures_artifact(session_id)
+        if not figures:
+            df = self._load_dataframe_for_state(state)
+            figures = self._render_figures(df, state)
+
+        state.status = "reviewed"
+        state.active_spec.approval_status = "reviewed"
+        state.active_spec.visuals = [
+            visual.model_copy(update={"status": "rendered"})
+            for visual in state.active_spec.visuals
+        ]
+        if state.plan is not None:
+            state.plan.approved = True
+            state.plan.design = state.active_spec.model_copy(deep=True)
+        if state.spec_versions:
+            state.spec_versions[-1] = state.active_spec.model_copy(deep=True)
+        else:
+            state.spec_versions.append(state.active_spec.model_copy(deep=True))
+        state.updated_at = _utc_now()
+        state.decisions.append("Dashboard finalized from review page.")
+
+        session_logger = SessionLogger(path=artifacts.log_path(self.config, session_id))
+        self._persist_session_artifacts(session_logger, state, figures=figures)
+
+        return GenerateResult(
+            session_id=session_id,
+            analysis=state.analysis,
+            dashboard_spec=state.active_spec,
+            figures=figures,
+            session_status=state.status,
+            artifacts=self.list_artifacts(session_id, state=state),
+        )
+
     def update_from_log_path(
         self,
         *,
@@ -729,13 +836,14 @@ class ApplicationService:
                     updated_at=str(log_file.stat().st_mtime),
                 )
             )
-        return summaries
+        return sorted(summaries, key=lambda item: self._sort_timestamp(item.created_at), reverse=True)
 
     def get_session_detail(self, session_id: str) -> SessionDetail:
         self._hydrate_remote_session(session_id)
         state = self._load_state(session_id)
         detail_spec = self._load_dashboard_spec_artifact(session_id)
         figures = self._load_figures_artifact(session_id)
+        dataset_profile = self._dataset_profile(state)
         return SessionDetail(
             session_id=session_id,
             status=state.status if state else "unknown",
@@ -743,6 +851,7 @@ class ApplicationService:
             dashboard_spec=detail_spec,
             figures=figures,
             artifacts=self.list_artifacts(session_id, state=state),
+            dataset_profile=dataset_profile,
         )
 
     def resolve_artifact(self, session_id: str, artifact_type: artifacts.ArtifactType) -> Path | None:
@@ -895,6 +1004,102 @@ class ApplicationService:
         if session_state.transformed_dataset and not self._is_local_path_reference(session_state.transformed_dataset):
             return self._ensure_local_artifact(session_state.transformed_dataset)
         raise FileNotFoundError(f"No dataset artifact available for session '{session_state.session_id}'.")
+
+    def _load_dataframe_for_state(self, session_state: SessionState) -> pd.DataFrame:
+        return _load_for_analysis(self._resolve_update_data_path(session_state), sample_rows=None)  # type: ignore[arg-type]
+
+    def _dataset_profile(self, session_state: SessionState | None) -> dict[str, Any]:
+        if session_state is None:
+            return {}
+        try:
+            df = self._load_dataframe_for_state(session_state)
+        except Exception:
+            return {}
+
+        missing_cells = int(df.isna().sum().sum())
+        duplicate_rows = int(df.duplicated().sum())
+        numeric_columns = df.select_dtypes(include="number").columns.tolist()
+        analysis = session_state.analysis
+        dimensions = (
+            list(analysis.metrics.dimensions)
+            if analysis is not None
+            else [column for column in df.columns if column not in numeric_columns]
+        )
+        filter_columns = list(dict.fromkeys(list(session_state.active_spec.filters) + dimensions))
+        filter_options: dict[str, list[Any]] = {}
+        for column in filter_columns:
+            if column not in df.columns:
+                continue
+            values = df[column].dropna().unique().tolist()
+            normalized = sorted(
+                (self._json_scalar(value) for value in values[:200]),
+                key=lambda item: str(item),
+            )
+            filter_options[column] = normalized
+
+        return {
+            "row_count": int(len(df)),
+            "column_count": int(len(df.columns)),
+            "missing_cells": missing_cells,
+            "duplicate_rows": duplicate_rows,
+            "numeric_column_count": int(len(numeric_columns)),
+            "dimension_count": int(len(dimensions)),
+            "dimensions": dimensions,
+            "filter_options": filter_options,
+            "quality_score": self._quality_score(session_state),
+        }
+
+    def _quality_score(self, session_state: SessionState) -> int:
+        penalties = {"high": 24, "medium": 12, "low": 5}
+        score = 100
+        if session_state.analysis is not None:
+            for issue in session_state.analysis.quality.issues:
+                score -= penalties.get(issue.severity, 5)
+        else:
+            score -= 5 * len(session_state.active_spec.data_quality_summary)
+        return max(0, min(100, score))
+
+    def _json_scalar(self, value: Any) -> Any:
+        if value is None:
+            return None
+        try:
+            if pd.isna(value):
+                return None
+        except (TypeError, ValueError):
+            pass
+        if isinstance(value, pd.Timestamp):
+            return value.isoformat()
+        if hasattr(value, "item"):
+            try:
+                return value.item()
+            except Exception:
+                pass
+        if isinstance(value, (str, int, float, bool)):
+            return value
+        return str(value)
+
+    def _apply_session_filters(self, df: pd.DataFrame, filters: dict[str, Any]) -> pd.DataFrame:
+        result = df
+        for column, raw_value in filters.items():
+            if column not in result.columns:
+                continue
+            if raw_value is None or raw_value == "__all__":
+                continue
+            values = raw_value if isinstance(raw_value, list) else [raw_value]
+            normalized_values = {str(value) for value in values if value not in {None, "__all__"}}
+            if not normalized_values:
+                continue
+            result = result[result[column].astype(str).isin(normalized_values)]
+        return result
+
+    def _sort_timestamp(self, value: str) -> float:
+        try:
+            return datetime.fromisoformat(value).timestamp()
+        except ValueError:
+            try:
+                return float(value)
+            except ValueError:
+                return 0.0
 
 
 def serialize_figure(figure: Any) -> dict[str, Any]:

@@ -10,8 +10,11 @@ from backend.errors import ApiError
 from backend.schemas import (
     AnalyzeResponse,
     ErrorResponse,
+    FigureFilterRequest,
+    FiguresResponse,
     GenerateResponse,
     SessionDetailResponse,
+    SessionPatchRequest,
     SessionsListResponse,
     StoredDatasetRequest,
     UpdateRequest,
@@ -143,6 +146,41 @@ def create_app(root_dir: Path | None = None) -> FastAPI:
             raise ApiError("session_not_found", f"Session '{payload.session_id}' was not found.", 404, str(exc)) from exc
         return UpdateResponse(
             session_id=result.session_id,
+            dashboard_spec=result.dashboard_spec.model_dump(),
+            figures=result.figures,
+            session_status=result.session_status,
+            artifacts=result.artifacts,
+        )
+
+    @app.patch("/sessions/{session_id}", response_model=SessionDetailResponse)
+    async def patch_session(session_id: str, payload: SessionPatchRequest) -> SessionDetailResponse:
+        try:
+            detail = service.patch_session(
+                session_id=session_id,
+                title=payload.title,
+                visual_order=payload.visual_order,
+            )
+        except FileNotFoundError as exc:
+            raise ApiError("session_not_found", f"Session '{session_id}' was not found.", 404, str(exc)) from exc
+        return SessionDetailResponse(**detail.__dict__)
+
+    @app.post("/sessions/{session_id}/figures", response_model=FiguresResponse)
+    async def render_session_figures(session_id: str, payload: FigureFilterRequest) -> FiguresResponse:
+        try:
+            figures = service.render_session_figures(session_id=session_id, filters=payload.filters)
+        except FileNotFoundError as exc:
+            raise ApiError("session_not_found", f"Session '{session_id}' was not found.", 404, str(exc)) from exc
+        return FiguresResponse(session_id=session_id, figures=figures)
+
+    @app.post("/sessions/{session_id}/generate", response_model=GenerateResponse)
+    async def generate_session(session_id: str) -> GenerateResponse:
+        try:
+            result = service.finalize_session(session_id=session_id)
+        except FileNotFoundError as exc:
+            raise ApiError("session_not_found", f"Session '{session_id}' was not found.", 404, str(exc)) from exc
+        return GenerateResponse(
+            session_id=result.session_id,
+            analysis=result.analysis.model_dump() if result.analysis else {},
             dashboard_spec=result.dashboard_spec.model_dump(),
             figures=result.figures,
             session_status=result.session_status,

@@ -3,14 +3,31 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 
 import { Icon } from "./Icons";
 
-const navItems = [
-  { to: "/upload", label: "Data", icon: "data" },
-  { to: "/update", label: "AI Review", icon: "review" },
-  { to: "/sessions", label: "Dashboard", icon: "dashboard" },
-];
+function currentSessionFromLocation(pathname) {
+  const routeMatch = pathname.match(/^\/(?:update|results)\/([^/]+)/);
+  if (routeMatch?.[1]) {
+    return routeMatch[1];
+  }
+  try {
+    return window.localStorage.getItem("signal.currentSessionId") || "";
+  } catch {
+    return "";
+  }
+}
+
+function navItemsForSession(sessionId) {
+  return [
+    { to: "/", label: "1. Upload Data", icon: "data" },
+    { to: sessionId ? `/update/${sessionId}` : "/update", label: "2. Review", icon: "review" },
+    { to: sessionId ? `/results/${sessionId}` : "/sessions", label: "3. Dashboard", icon: "dashboard" },
+    { to: "/sessions", label: "Sessions", icon: "database" },
+  ];
+}
 
 export function AppShell({ children }) {
   const location = useLocation();
+  const currentSessionId = currentSessionFromLocation(location.pathname);
+  const navItems = navItemsForSession(currentSessionId);
 
   if (location.pathname === "/") {
     return children;
@@ -29,7 +46,7 @@ export function AppShell({ children }) {
         <nav className="topnav" aria-label="Primary navigation">
           {navItems.map((item) => (
             <NavLink
-              key={item.to}
+              key={item.label}
               to={item.to}
               className={({ isActive }) => `topnav__link${isActive ? " topnav__link--active" : ""}`}
             >

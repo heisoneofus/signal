@@ -188,6 +188,7 @@ def _heuristic_analysis(df: pd.DataFrame, description: str | None) -> AnalysisRe
                 color=split_category,
                 aggregation=aggregation,  # type: ignore[arg-type]
                 time_grain=time_grain,  # type: ignore[arg-type]
+                layout_size="hero",
             )
         )
     if categorical_cols and primary_metrics:
@@ -201,6 +202,7 @@ def _heuristic_analysis(df: pd.DataFrame, description: str | None) -> AnalysisRe
                 x=category,
                 y=primary_metrics[0],
                 aggregation="sum",
+                layout_size="wide" if not visuals else "standard",
             )
         )
     if time_fields and categorical_cols and primary_metrics:
@@ -211,6 +213,7 @@ def _heuristic_analysis(df: pd.DataFrame, description: str | None) -> AnalysisRe
                 x=time_fields[0],
                 y=categorical_cols[0],
                 color=primary_metrics[0],
+                layout_size="tall",
             )
         )
     if len(primary_metrics) >= 2:
@@ -220,6 +223,7 @@ def _heuristic_analysis(df: pd.DataFrame, description: str | None) -> AnalysisRe
                 chart_type="scatter",
                 x=primary_metrics[0],
                 y=primary_metrics[1],
+                layout_size="standard",
             )
         )
     if not visuals and numeric_cols:
@@ -228,6 +232,7 @@ def _heuristic_analysis(df: pd.DataFrame, description: str | None) -> AnalysisRe
                 title=f"Distribution of {_humanize_column(numeric_cols[0])}",
                 chart_type="histogram",
                 x=numeric_cols[0],
+                layout_size="wide",
             )
         )
 
@@ -283,6 +288,7 @@ class Analyzer:
                 "When grouped rollups would improve KPI readability, recommend `aggregate_by` and mention grouping columns, metric columns, and aggregation intent.",
                 "When matrix/cross-tab structure would improve heatmap readiness, recommend `pivot_data` and mention index, columns, values, and aggfunc intent.",
                 "Aim for a varied chart mix when appropriate (line, bar, scatter, histogram, box, area, heatmap, pie) instead of defaulting to only timeline/bar views.",
+                "Assign `layout_size` to every visual based on the best canvas treatment: hero for the main timeline/overview, wide for horizontal comparisons, tall for dense distributions/heatmaps, compact for simple composition, and standard otherwise.",
                 "Use only column names that exist in the provided schema.",
                 "For visual mappings (`x`, `y`, `color`, and optional encodings such as `shape`, `size`, `symbol`, `facet_row`, `facet_col`), select only schema-present columns.",
                 "Required plotting fields must exist; optional encodings should be omitted when unavailable.",

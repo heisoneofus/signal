@@ -328,8 +328,13 @@ export function RunPage() {
     try {
       const endpoint = mode === "analyze" ? "/analyze" : "/generate";
       const payload = await uploadDataset(endpoint, file, contextText);
+      try {
+        window.localStorage.setItem("signal.currentSessionId", payload.session_id);
+      } catch {
+        // Navigation still works when storage is unavailable.
+      }
       startTransition(() => {
-        navigate(`/results/${payload.session_id}`);
+        navigate(`/update/${payload.session_id}`);
       });
     } catch (submissionError) {
       setError(submissionError.message || "Unable to process the dataset right now.");
@@ -358,7 +363,7 @@ export function RunPage() {
           </button>
           <button type="button" className="button button--primary" disabled={!!busyAction} onClick={() => handleSubmit("generate")}>
             <Icon name="database" size={16} />
-            Analyze & Generate Dashboard
+            Review Draft Dashboard
             <Icon name="arrow" size={16} />
           </button>
         </div>

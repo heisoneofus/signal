@@ -29,6 +29,15 @@ class UpdateRequest(BaseModel):
     prompt: str
 
 
+class SessionPatchRequest(BaseModel):
+    title: str | None = None
+    visual_order: list[str] | None = None
+
+
+class FigureFilterRequest(BaseModel):
+    filters: dict[str, Any] = Field(default_factory=dict)
+
+
 class StoredDatasetRequest(BaseModel):
     dataset_key: str
     filename: str
@@ -41,6 +50,11 @@ class UpdateResponse(BaseModel):
     figures: list[dict[str, Any]] = Field(default_factory=list)
     session_status: str
     artifacts: list[ArtifactDescriptor] = Field(default_factory=list)
+
+
+class FiguresResponse(BaseModel):
+    session_id: str
+    figures: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class SessionSummaryResponse(BaseModel):
@@ -62,6 +76,7 @@ class SessionDetailResponse(BaseModel):
     dashboard_spec: dict[str, Any]
     figures: list[dict[str, Any]] = Field(default_factory=list)
     artifacts: list[ArtifactDescriptor] = Field(default_factory=list)
+    dataset_profile: dict[str, Any] = Field(default_factory=dict)
 
 
 class ErrorResponse(BaseModel):

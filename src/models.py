@@ -51,6 +51,7 @@ class VisualSpec(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     confidence: float | None = Field(default=None, ge=0, le=1)
     pinned: bool = False
+    layout_size: Literal["hero", "wide", "standard", "tall", "compact"] = "standard"
     status: Literal["proposed", "approved", "rendered", "revised"] = "proposed"
 
 

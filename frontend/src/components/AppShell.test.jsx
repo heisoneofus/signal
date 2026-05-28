@@ -4,10 +4,12 @@ import { describe, expect, it } from "vitest";
 
 import { AppShell } from "./AppShell";
 
+const routerFuture = { v7_relativeSplatPath: true, v7_startTransition: true };
+
 describe("AppShell", () => {
   it("uses the Signal brand in the shell", () => {
     render(
-      <MemoryRouter initialEntries={["/upload"]}>
+      <MemoryRouter future={routerFuture} initialEntries={["/upload"]}>
         <AppShell>
           <div>Content</div>
         </AppShell>
@@ -15,5 +17,23 @@ describe("AppShell", () => {
     );
 
     expect(screen.getByText("Signal")).toBeInTheDocument();
+  });
+
+  it("shows review-first workflow navigation with current session links", () => {
+    window.localStorage.setItem("signal.currentSessionId", "session_123");
+
+    render(
+      <MemoryRouter future={routerFuture} initialEntries={["/results/session_123"]}>
+        <AppShell>
+          <div>Content</div>
+        </AppShell>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("link", { name: /1\. upload data/i })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: /2\. review/i })).toHaveAttribute("href", "/update/session_123");
+    expect(screen.getByRole("link", { name: /3\. dashboard/i })).toHaveAttribute("href", "/results/session_123");
+    expect(screen.getByRole("link", { name: /sessions/i })).toHaveAttribute("href", "/sessions");
+    expect(screen.queryByText(/ai review/i)).not.toBeInTheDocument();
   });
 });

@@ -58,6 +58,7 @@ class AnalysisReportModelTests(unittest.TestCase):
         self.assertEqual(visual.rationale, "")
         self.assertEqual(visual.warnings, [])
         self.assertEqual(visual.status, "proposed")
+        self.assertEqual(visual.layout_size, "standard")
 
     def test_session_state_tracks_spec_versions(self) -> None:
         spec = DashboardSpec(title="Demo")

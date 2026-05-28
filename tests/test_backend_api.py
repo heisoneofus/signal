@@ -115,6 +115,113 @@ def test_generate_and_update_endpoints_return_plotly_json(tmp_path: Path) -> Non
     assert len(serialized_figures) == len(updated["figures"])
 
 
+def test_session_detail_includes_dataset_profile_and_filter_options(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+
+    generate = client.post(
+        "/generate",
+        files={
+            "dataset": (
+                "sales.csv",
+                io.BytesIO(b"region,segment,sales\nEU,Enterprise,10\nUS,SMB,20\nEU,SMB,\nEU,Enterprise,10\n"),
+                "text/csv",
+            )
+        },
+        data={"context_text": "Show sales by region and segment."},
+    )
+
+    assert generate.status_code == 200
+    session_id = generate.json()["session_id"]
+
+    detail = client.get(f"/sessions/{session_id}")
+
+    assert detail.status_code == 200
+    profile = detail.json()["dataset_profile"]
+    assert profile["row_count"] == 4
+    assert profile["column_count"] == 3
+    assert profile["missing_cells"] == 1
+    assert profile["duplicate_rows"] == 1
+    assert 0 <= profile["quality_score"] <= 100
+    assert "region" in profile["filter_options"]
+    assert profile["filter_options"]["region"] == ["EU", "US"]
+
+
+def test_session_patch_persists_title_and_visual_order(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+
+    generate = client.post(
+        "/generate",
+        files={"dataset": ("sales.csv", io.BytesIO(b"region,sales,profit\nEU,10,4\nUS,20,9\nAPAC,15,5\n"), "text/csv")},
+        data={"context_text": "Show sales and profit by region."},
+    )
+
+    assert generate.status_code == 200
+    generated = generate.json()
+    session_id = generated["session_id"]
+    visual_ids = [visual["id"] for visual in generated["dashboard_spec"]["visuals"]]
+    assert len(visual_ids) >= 2
+
+    patch = client.patch(
+        f"/sessions/{session_id}",
+        json={"title": "Renamed Sales Dashboard", "visual_order": list(reversed(visual_ids))},
+    )
+
+    assert patch.status_code == 200
+    patched = patch.json()
+    assert patched["dashboard_spec"]["title"] == "Renamed Sales Dashboard"
+    assert [visual["id"] for visual in patched["dashboard_spec"]["visuals"]] == list(reversed(visual_ids))
+
+    detail = client.get(f"/sessions/{session_id}")
+    assert detail.status_code == 200
+    assert detail.json()["dashboard_spec"]["title"] == "Renamed Sales Dashboard"
+
+
+def test_session_figures_endpoint_rerenders_with_filters(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+
+    generate = client.post(
+        "/generate",
+        files={"dataset": ("sales.csv", io.BytesIO(b"region,sales\nEU,10\nUS,20\nEU,15\n"), "text/csv")},
+        data={"context_text": "Show sales by region."},
+    )
+
+    assert generate.status_code == 200
+    session_id = generate.json()["session_id"]
+
+    response = client.post(f"/sessions/{session_id}/figures", json={"filters": {"region": ["EU"]}})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["session_id"] == session_id
+    assert payload["figures"]
+    first_figure_text = json.dumps(payload["figures"][0])
+    assert "EU" in first_figure_text
+    assert "US" not in first_figure_text
+
+
+def test_session_generate_finalizes_planned_session_and_creates_figures(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+
+    analyze = client.post(
+        "/analyze",
+        files={"dataset": ("sales.csv", io.BytesIO(b"region,sales\nEU,10\nUS,20\n"), "text/csv")},
+        data={"context_text": "Show sales by region."},
+    )
+
+    assert analyze.status_code == 200
+    session_id = analyze.json()["session_id"]
+    assert client.get(f"/sessions/{session_id}").json()["figures"] == []
+
+    response = client.post(f"/sessions/{session_id}/generate")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["session_id"] == session_id
+    assert payload["session_status"] == "reviewed"
+    assert payload["figures"]
+    assert all(visual["status"] == "rendered" for visual in payload["dashboard_spec"]["visuals"])
+
+
 def test_vercel_api_prefix_accepts_direct_generate_upload(tmp_path: Path) -> None:
     client = _client(tmp_path)
 

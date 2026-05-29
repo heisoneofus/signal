@@ -270,6 +270,18 @@ describe("frontend pages", () => {
     await userEvent.type(screen.getByLabelText(/update prompt for sales by region/i), "Change to a scatter chart");
     await userEvent.click(screen.getByRole("button", { name: /update sales by region/i }));
 
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/update"),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            session_id: "session_123",
+            prompt: "For Sales by Region, Change to a scatter chart",
+          }),
+        }),
+      );
+    });
     expect(await screen.findByText(/scatter/i)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /generate dashboard/i }));
     expect(navigateMock).toHaveBeenCalledWith("/results/session_123");
@@ -366,6 +378,11 @@ describe("frontend pages", () => {
     await userEvent.click(screen.getByRole("button", { name: /export/i }));
     await userEvent.click(screen.getByRole("menuitem", { name: /snapshot url/i }));
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining("/results/session_123"));
+
+    navigator.clipboard.writeText.mockRejectedValueOnce(new Error("Permission denied"));
+    await userEvent.click(screen.getByRole("button", { name: /export/i }));
+    await userEvent.click(screen.getByRole("menuitem", { name: /snapshot url/i }));
+    expect(await screen.findByText(/snapshot url copy unavailable/i)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /move profit by region up/i }));
     await waitFor(() => {

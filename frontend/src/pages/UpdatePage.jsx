@@ -27,7 +27,7 @@ function VisualReviewCard({ visual, figure, index, onUpdate, updating }) {
     if (!prompt.trim()) {
       return;
     }
-    await onUpdate(prompt.trim());
+    await onUpdate(`For ${title}, ${prompt.trim()}`);
     setPrompt("");
   }
 

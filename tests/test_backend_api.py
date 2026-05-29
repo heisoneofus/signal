@@ -288,10 +288,13 @@ def test_generate_endpoint_with_heuristic_time_series_does_not_invalid_pivot(
 def test_vercel_nested_api_entrypoints_cover_frontend_routes() -> None:
     repo_root = Path(__file__).resolve().parent.parent
     entrypoints = [
+        repo_root / "api" / "[...path].py",
         repo_root / "api" / "analyze" / "[mode].py",
         repo_root / "api" / "artifacts" / "[session_id]" / "[artifact_type].py",
         repo_root / "api" / "generate" / "[mode].py",
         repo_root / "api" / "sessions" / "[session_id].py",
+        repo_root / "api" / "sessions" / "[session_id]" / "figures.py",
+        repo_root / "api" / "sessions" / "[session_id]" / "generate.py",
     ]
 
     for entrypoint in entrypoints:

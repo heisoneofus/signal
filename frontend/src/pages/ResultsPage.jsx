@@ -98,9 +98,17 @@ function ExportMenu({ sessionId, targetRef, selectedFilters }) {
     });
     const suffix = params.toString() ? `?${params.toString()}` : "";
     const url = `${window.location.origin}/results/${sessionId}${suffix}`;
-    await navigator.clipboard?.writeText(url);
-    setOpen(false);
-    setStatus("Snapshot URL copied");
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(url);
+      setStatus("Snapshot URL copied");
+    } catch {
+      setStatus("Snapshot URL copy unavailable");
+    } finally {
+      setOpen(false);
+    }
   }
 
   return (

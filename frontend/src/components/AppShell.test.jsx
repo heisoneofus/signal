@@ -30,7 +30,7 @@ describe("AppShell", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("link", { name: /1\. upload data/i })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: /1\. upload data/i })).toHaveAttribute("href", "/upload");
     expect(screen.getByRole("link", { name: /2\. review/i })).toHaveAttribute("href", "/update/session_123");
     expect(screen.getByRole("link", { name: /3\. dashboard/i })).toHaveAttribute("href", "/results/session_123");
     expect(screen.getByRole("link", { name: /sessions/i })).toHaveAttribute("href", "/sessions");

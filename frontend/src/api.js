@@ -46,6 +46,15 @@ export function selectUploadStrategy({
 
 const API_BASE_URL = resolveApiBaseUrl();
 
+class ApiRequestError extends Error {
+  constructor(message, { status, payload } = {}) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
 function sanitizeFilename(filename) {
   return filename.replace(/[^a-zA-Z0-9._-]+/g, "-");
 }
@@ -57,12 +66,22 @@ async function parseResponse(response) {
   if (!response.ok) {
     const message =
       typeof payload === "object" && payload !== null
-        ? payload.message || payload.code || payload.error || "Request failed"
+        ? payload.message || payload.detail || payload.code || payload.error || "Request failed"
         : "Request failed";
-    throw new Error(message);
+    throw new ApiRequestError(message, { status: response.status, payload });
   }
 
   return payload;
+}
+
+function isMissingFinalizeRoute(error) {
+  if (error?.status !== 404) {
+    return false;
+  }
+  if (typeof error.payload === "object" && error.payload !== null && error.payload.code) {
+    return false;
+  }
+  return error.message === "Not Found" || error.message === "Request failed";
 }
 
 export async function apiFetch(path, options = {}) {
@@ -146,9 +165,16 @@ export async function renderSessionFigures(sessionId, filters = {}) {
 }
 
 export async function finalizeSession(sessionId) {
-  return apiFetch(`/sessions/${sessionId}/generate`, {
-    method: "POST",
-  });
+  try {
+    return await apiFetch(`/sessions/${sessionId}/generate`, {
+      method: "POST",
+    });
+  } catch (error) {
+    if (!isMissingFinalizeRoute(error)) {
+      throw error;
+    }
+    return updateDashboard(sessionId, "Finalize dashboard without visual changes.");
+  }
 }
 
 export async function updateDashboard(sessionId, prompt) {

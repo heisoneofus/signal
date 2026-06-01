@@ -53,9 +53,15 @@ def create_app(root_dir: Path | None = None) -> FastAPI:
             request.scope["path"] = request.scope["path"][4:]
         return await call_next(request)
     app.state.service = service
+    local_frontend_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+    ]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+        allow_origins=local_frontend_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

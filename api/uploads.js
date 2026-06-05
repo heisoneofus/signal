@@ -14,14 +14,53 @@ function resolveBlobToken() {
   return process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL_BLOB_READ_WRITE_TOKEN;
 }
 
-export default async function handler(request) {
+function sendJson(response, payload, status = 200) {
+  if (!response) {
+    return Response.json(payload, { status });
+  }
+
+  response.statusCode = status;
+  response.setHeader("Content-Type", "application/json");
+  response.end(JSON.stringify(payload));
+  return undefined;
+}
+
+async function readJsonBody(request) {
+  if (typeof request.json === "function") {
+    return request.json();
+  }
+
+  if (request.body !== undefined) {
+    if (typeof request.body === "string") {
+      return JSON.parse(request.body);
+    }
+    if (Buffer.isBuffer(request.body)) {
+      return JSON.parse(request.body.toString("utf8"));
+    }
+    if (typeof request.body === "object") {
+      return request.body;
+    }
+  }
+
+  const chunks = [];
+  for await (const chunk of request) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
+
+export default async function handler(request, response) {
   try {
-    const token = resolveBlobToken();
-    if (!token) {
-      return Response.json({ error: "Vercel Blob token is not configured." }, { status: 500 });
+    if (request.method && request.method !== "POST") {
+      return sendJson(response, { error: "Method not allowed." }, 405);
     }
 
-    const body = await request.json();
+    const token = resolveBlobToken();
+    if (!token) {
+      return sendJson(response, { error: "Vercel Blob token is not configured." }, 500);
+    }
+
+    const body = await readJsonBody(request);
     const jsonResponse = await handleUpload({
       body,
       request,
@@ -39,11 +78,12 @@ export default async function handler(request) {
       },
     });
 
-    return Response.json(jsonResponse);
+    return sendJson(response, jsonResponse);
   } catch (error) {
-    return Response.json(
+    return sendJson(
+      response,
       { error: error instanceof Error ? error.message : "Upload token generation failed." },
-      { status: 400 },
+      400,
     );
   }
 }

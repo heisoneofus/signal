@@ -40,6 +40,21 @@ def test_local_production_preview_origin_is_allowed(tmp_path: Path) -> None:
     assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:4173"
 
 
+def test_auto_selected_local_preview_origin_is_allowed(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+
+    response = client.options(
+        "/generate",
+        headers={
+            "Origin": "http://127.0.0.1:4186",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:4186"
+
+
 def test_analyze_endpoint_persists_session_and_artifacts(tmp_path: Path) -> None:
     client = _client(tmp_path)
 

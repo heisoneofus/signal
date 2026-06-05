@@ -15,13 +15,17 @@ function resolveBlobToken() {
 }
 
 export default async function handler(request) {
-  const body = await request.json();
-
   try {
+    const token = resolveBlobToken();
+    if (!token) {
+      return Response.json({ error: "Vercel Blob token is not configured." }, { status: 500 });
+    }
+
+    const body = await request.json();
     const jsonResponse = await handleUpload({
       body,
       request,
-      token: resolveBlobToken(),
+      token,
       onBeforeGenerateToken: async (pathname) => {
         if (!pathname.startsWith("uploads/")) {
           throw new Error("Uploads must be stored under the uploads/ prefix.");
@@ -32,9 +36,6 @@ export default async function handler(request) {
           addRandomSuffix: false,
           tokenPayload: JSON.stringify({ pathname }),
         };
-      },
-      onUploadCompleted: async () => {
-        return;
       },
     });
 

@@ -341,7 +341,7 @@ def create_figure(df: pd.DataFrame, spec: VisualSpec, theme: DashboardTheme | st
             pie_values = spec.y
         if data.empty:
             return error_figure(spec.title, "Aggregation resulted in empty dataset.", theme=theme)
-    elif spec.aggregation and spec.x and spec.y and spec.chart_type != "heatmap":
+    elif spec.aggregation and spec.x and spec.y and spec.chart_type not in {"box", "heatmap", "histogram"}:
         group_keys = [spec.x]
         optional_grouping_columns = [
             column for column in _optional_encodings(spec).values() if column in df.columns

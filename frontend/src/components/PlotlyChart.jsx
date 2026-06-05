@@ -3,7 +3,7 @@ import React, { Suspense, useEffect, useRef, useState } from "react";
 const Plot = React.lazy(async () => {
   const [{ default: createPlotlyComponent }, { default: Plotly }] = await Promise.all([
     import("react-plotly.js/factory"),
-    import("plotly.js-basic-dist-min"),
+    import("plotly.js-dist-min"),
   ]);
 
   return { default: createPlotlyComponent(Plotly) };

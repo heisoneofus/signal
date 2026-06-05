@@ -19,6 +19,21 @@ describe("AppShell", () => {
     expect(screen.getByText("Signal")).toBeInTheDocument();
   });
 
+  it("does not show a dashboard link before a session exists", () => {
+    window.localStorage.clear();
+
+    render(
+      <MemoryRouter future={routerFuture} initialEntries={["/upload"]}>
+        <AppShell>
+          <div>Content</div>
+        </AppShell>
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole("link", { name: /3\. dashboard/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /sessions/i })).toHaveAttribute("href", "/sessions");
+  });
+
   it("shows review-first workflow navigation with current session links", () => {
     window.localStorage.setItem("signal.currentSessionId", "session_123");
 

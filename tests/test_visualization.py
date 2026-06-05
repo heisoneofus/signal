@@ -128,6 +128,28 @@ class VisualizationTests(unittest.TestCase):
 
         self.assertGreater(len(figure.data), 0)
 
+    def test_create_figure_box_uses_raw_observations_with_aggregation_hint(self) -> None:
+        df = pd.DataFrame(
+            {
+                "channel": ["chat", "chat", "email", "email", "chat", "chat", "email", "email"],
+                "severity": ["high", "high", "high", "high", "normal", "normal", "normal", "normal"],
+                "avg_resolution_hours": [4.2, 6.8, 12.5, 15.1, 2.5, 3.2, 8.1, 9.4],
+            }
+        )
+        spec = VisualSpec(
+            title="Resolution Distribution",
+            chart_type="box",
+            x="channel",
+            y="avg_resolution_hours",
+            color="severity",
+            aggregation="mean",
+        )
+
+        figure = create_figure(df, spec)
+
+        self.assertEqual({trace.type for trace in figure.data}, {"box"})
+        self.assertGreater(max(len(list(trace.y)) for trace in figure.data), 2)
+
     def test_create_figure_aggregation_still_requires_x_and_y_for_non_histogram(self) -> None:
         df = pd.DataFrame({"region": ["EU", "US", "APAC"]})
         spec = VisualSpec(title="Counts", chart_type="bar", x="region", aggregation="count")

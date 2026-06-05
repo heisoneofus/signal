@@ -16,10 +16,17 @@ function currentSessionFromLocation(pathname) {
 }
 
 function navItemsForSession(sessionId) {
-  return [
+  const items = [
     { to: "/upload", label: "1. Upload Data", icon: "data" },
     { to: sessionId ? `/update/${sessionId}` : "/update", label: "2. Review", icon: "review" },
-    { to: sessionId ? `/results/${sessionId}` : "/sessions", label: "3. Dashboard", icon: "dashboard" },
+  ];
+
+  if (sessionId) {
+    items.push({ to: `/results/${sessionId}`, label: "3. Dashboard", icon: "dashboard" });
+  }
+
+  return [
+    ...items,
     { to: "/sessions", label: "Sessions", icon: "database" },
   ];
 }

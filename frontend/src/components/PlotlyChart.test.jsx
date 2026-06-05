@@ -1,28 +1,32 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const plotlyFactoryState = vi.hoisted(() => ({ supportsHeatmap: false }));
 let resizeCallback;
 
 vi.mock("react-plotly.js/factory", () => ({
-  default: () =>
-    function MockPlot({ data, layout, config, revision }) {
+  default: (plotly) => {
+    plotlyFactoryState.supportsHeatmap = Boolean(plotly.__supportsHeatmap);
+    return function MockPlot({ data, layout, config, revision }) {
       return (
         <div
           data-testid="plotly-inner"
           data-title={layout?.title?.text || ""}
           data-hover={data?.[0]?.hovertemplate || ""}
           data-logo={String(config?.displaylogo)}
+          data-plotly-heatmap={String(plotlyFactoryState.supportsHeatmap)}
           data-revision={String(revision)}
           data-width={String(layout?.width || "")}
         >
           {data?.length ?? 0}
         </div>
       );
-    },
+    };
+  },
 }));
 
-vi.mock("plotly.js-basic-dist-min", () => ({
-  default: {},
+vi.mock("plotly.js-dist-min", () => ({
+  default: { __supportsHeatmap: true },
 }));
 
 afterEach(() => {
@@ -83,5 +87,13 @@ describe("PlotlyChart", () => {
     const chart = await screen.findByTestId("plotly-inner");
     await waitFor(() => expect(chart).toHaveAttribute("data-width", "360"));
     expect(chart).toHaveAttribute("data-revision", "360");
+  });
+
+  it("loads the Plotly bundle that supports heatmap traces", async () => {
+    const { PlotlyChart } = await import("./PlotlyChart");
+
+    render(<PlotlyChart figure={{ data: [{ type: "heatmap", z: [[1]] }], layout: {} }} title="Heatmap" />);
+
+    expect(await screen.findByTestId("plotly-inner")).toHaveAttribute("data-plotly-heatmap", "true");
   });
 });

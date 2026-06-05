@@ -94,7 +94,7 @@ export function PlotlyChart({ figure = {}, title }) {
             ...sourceLayout,
             autosize: true,
             ...(containerWidth ? { width: containerWidth } : {}),
-            font: { color: "#cbd5e1", family: "Inter, sans-serif", size: 12 },
+            font: { color: "#cbd5e1", family: "IBM Plex Sans, Inter, sans-serif", size: 12 },
             margin: { l: 42, r: 18, t: 20, b: 42 },
             paper_bgcolor: "rgba(0,0,0,0)",
             plot_bgcolor: "#080f20",
@@ -120,7 +120,7 @@ export function PlotlyChart({ figure = {}, title }) {
             hoverlabel: {
               bgcolor: "#f8fafc",
               bordercolor: "#38bdf8",
-              font: { color: "#0f172a", family: "Inter, sans-serif", size: 12 },
+              font: { color: "#0f172a", family: "IBM Plex Sans, Inter, sans-serif", size: 12 },
               ...(sourceLayout.hoverlabel || {}),
             },
             title: { text: "" },

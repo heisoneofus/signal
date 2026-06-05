@@ -10,6 +10,17 @@ function humanizeName(name = "") {
   return String(name).replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function formatConfidence(value) {
+  if (value === null || value === undefined) {
+    return "Confidence pending";
+  }
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) {
+    return "Confidence pending";
+  }
+  return `${Math.round(numeric * 100)}% confidence`;
+}
+
 function rememberSession(sessionId) {
   try {
     window.localStorage.setItem("signal.currentSessionId", sessionId);
@@ -18,7 +29,7 @@ function rememberSession(sessionId) {
   }
 }
 
-function VisualReviewCard({ visual, figure, index, onUpdate, updating }) {
+function VisualReviewCard({ visual, figure, index, onUpdate, updating, priority = "secondary" }) {
   const [prompt, setPrompt] = useState("");
   const title = visual.title || `Visual ${index + 1}`;
 
@@ -32,17 +43,25 @@ function VisualReviewCard({ visual, figure, index, onUpdate, updating }) {
   }
 
   return (
-    <article className={`plan-card plan-card--chart plan-card--${visual.layout_size || "standard"}`}>
+    <article className={`plan-card plan-card--chart plan-card--${priority} plan-card--${visual.layout_size || "standard"}`}>
       <div className="plan-card__title">
         <span className="metric-icon">
           <Icon name={index === 0 ? "chart" : "dashboard"} size={18} />
         </span>
         <div>
           <h2>{title}</h2>
-          <p>{humanizeName(visual.chart_type || "Chart")}</p>
+          <p>
+            {humanizeName(visual.chart_type || "Chart")} - {formatConfidence(visual.confidence)}
+          </p>
         </div>
         <code className="ready-chip">{humanizeName(visual.status || "Ready")}</code>
       </div>
+      {priority === "primary" ? (
+        <div className="decision-strip">
+          <span>Primary recommendation</span>
+          <strong>{visual.rationale || "Review this visual first; it anchors the dashboard narrative."}</strong>
+        </div>
+      ) : null}
       <div className="review-chart-frame">
         {figure ? (
           <PlotlyChart figure={figure} title={title} />
@@ -188,6 +207,8 @@ export function UpdatePage() {
 
   const visuals = payload?.dashboard_spec?.visuals || [];
   const figures = payload?.figures || [];
+  const primaryVisual = visuals[0];
+  const secondaryVisuals = visuals.slice(1);
 
   return (
     <section className="review-page review-page--wide">
@@ -227,18 +248,48 @@ export function UpdatePage() {
           {loading ? <p className="status">Loading session...</p> : null}
         </div>
 
+        <div className="review-decision-bar">
+          <div>
+            <span>Review queue</span>
+            <strong>{visuals.length ? `${visuals.length} proposed visual${visuals.length === 1 ? "" : "s"}` : "No proposed visuals"}</strong>
+          </div>
+          <div>
+            <span>Next decision</span>
+            <strong>{visuals.length ? "Approve the lead chart, then tune supporting views" : "Load a session to begin"}</strong>
+          </div>
+          <div>
+            <span>Output</span>
+            <strong>{payload?.dashboard_spec?.layout ? humanizeName(payload.dashboard_spec.layout) : "Dashboard draft"}</strong>
+          </div>
+        </div>
+
         <div className="plan-card-list plan-card-list--canvas">
-          {visuals.length ? (
-            visuals.map((visual, index) => (
+          {primaryVisual ? (
+            <>
               <VisualReviewCard
-                visual={visual}
-                figure={figures[index]}
-                index={index}
-                key={visual.id || `${visual.title || "visual"}-${index}`}
+                visual={primaryVisual}
+                figure={figures[0]}
+                index={0}
+                key={primaryVisual.id || `${primaryVisual.title || "visual"}-0`}
                 onUpdate={applyChartUpdate}
+                priority="primary"
                 updating={submitting}
               />
-            ))
+              {secondaryVisuals.map((visual, offset) => {
+                const index = offset + 1;
+                return (
+                  <VisualReviewCard
+                    visual={visual}
+                    figure={figures[index]}
+                    index={index}
+                    key={visual.id || `${visual.title || "visual"}-${index}`}
+                    onUpdate={applyChartUpdate}
+                    priority="secondary"
+                    updating={submitting}
+                  />
+                );
+              })}
+            </>
           ) : (
             <article className="plan-card">
               <div className="empty-state">Load a session to review the active visualization plan.</div>

@@ -122,11 +122,11 @@ def _display_name(name: str) -> str:
 
 
 def _theme_badge(theme: str) -> str:
-    return "Nebula Dark Mode" if theme == "dark" else "Photon Light Mode"
+    return "Dark Analysis View" if theme == "dark" else "Signal Analysis View"
 
 
 def _theme_status(theme: str) -> str:
-    return "Dark spectrum engaged" if theme == "dark" else "Light spectrum engaged"
+    return "Dark chart theme" if theme == "dark" else "Light chart theme"
 
 
 def _root_class(theme: str) -> str:
@@ -681,6 +681,8 @@ def _workspace_main_class(approved: bool) -> str:
 
 
 def _sidebar_panel_class(base: str, approved: bool) -> str:
+    if approved and "provenance-card" in base:
+        return f"{base} sidebar-card provenance-card--approved"
     return f"{base} sidebar-card sidebar-card--hidden" if approved else f"{base} sidebar-card"
 
 
@@ -722,60 +724,61 @@ def _dashboard_styles() -> str:
             background: #050816;
         }
         body {
-            font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+            font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
         }
         .dashboard-shell {
-            --bg-primary: #f4f7ff;
-            --bg-secondary: #e9f4ff;
-            --surface: rgba(255, 255, 255, 0.82);
+            --bg-primary: #f7f9fc;
+            --bg-secondary: #eef4fb;
+            --surface: rgba(255, 255, 255, 0.94);
             --surface-strong: #ffffff;
-            --surface-soft: #edf3ff;
-            --border: rgba(71, 103, 190, 0.18);
-            --border-strong: rgba(71, 103, 190, 0.32);
-            --text-primary: #10203d;
-            --text-secondary: #5f6f8e;
-            --accent-primary: #246bff;
-            --accent-secondary: #11c7b3;
-            --accent-tertiary: #6d5efc;
-            --chip-bg: rgba(36, 107, 255, 0.08);
-            --shadow: 0 24px 60px rgba(72, 94, 161, 0.18);
-            --grid-border: rgba(71, 103, 190, 0.12);
+            --surface-soft: #edf3f8;
+            --border: rgba(30, 41, 59, 0.16);
+            --border-strong: rgba(14, 116, 144, 0.34);
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --accent-primary: #2563eb;
+            --accent-secondary: #0891b2;
+            --accent-tertiary: #14b8a6;
+            --chip-bg: rgba(8, 145, 178, 0.1);
+            --shadow: 0 18px 46px rgba(15, 23, 42, 0.12);
+            --grid-border: rgba(30, 41, 59, 0.1);
             min-height: 100vh;
             position: relative;
             overflow: hidden;
             background:
-                radial-gradient(circle at top left, rgba(36, 107, 255, 0.18), transparent 30%),
-                radial-gradient(circle at top right, rgba(17, 199, 179, 0.18), transparent 24%),
+                linear-gradient(rgba(8, 145, 178, 0.055) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(8, 145, 178, 0.045) 1px, transparent 1px),
                 linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            background-size: 44px 44px, 44px 44px, auto;
             color: var(--text-primary);
             transition: background 0.3s ease, color 0.3s ease;
         }
         .dashboard-shell.theme-dark {
-            --bg-primary: #050816;
-            --bg-secondary: #0b1431;
-            --surface: rgba(10, 18, 42, 0.78);
-            --surface-strong: #0f1a38;
-            --surface-soft: #132247;
-            --border: rgba(101, 140, 255, 0.2);
-            --border-strong: rgba(80, 227, 194, 0.34);
+            --bg-primary: #050812;
+            --bg-secondary: #07111f;
+            --surface: rgba(16, 24, 39, 0.92);
+            --surface-strong: #111c2d;
+            --surface-soft: #172235;
+            --border: rgba(148, 163, 184, 0.2);
+            --border-strong: rgba(56, 189, 248, 0.34);
             --text-primary: #eef4ff;
             --text-secondary: #9dafd4;
-            --accent-primary: #5ea1ff;
-            --accent-secondary: #50e3c2;
-            --accent-tertiary: #a46bff;
-            --chip-bg: rgba(94, 161, 255, 0.12);
-            --shadow: 0 26px 80px rgba(0, 0, 0, 0.42);
-            --grid-border: rgba(101, 140, 255, 0.16);
+            --accent-primary: #6ea8ff;
+            --accent-secondary: #38bdf8;
+            --accent-tertiary: #14d49b;
+            --chip-bg: rgba(56, 189, 248, 0.12);
+            --shadow: 0 18px 46px rgba(0, 0, 0, 0.32);
+            --grid-border: rgba(148, 163, 184, 0.16);
         }
         .dashboard-shell::before,
         .dashboard-shell::after {
             content: "";
             position: absolute;
             inset: auto;
-            width: 32rem;
-            height: 32rem;
-            border-radius: 50%;
-            filter: blur(40px);
+            display: none;
+            width: 0;
+            height: 0;
+            filter: none;
             pointer-events: none;
             opacity: 0.46;
         }
@@ -802,9 +805,9 @@ def _dashboard_styles() -> str:
         .empty-state {
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 28px;
+            border-radius: 8px;
             box-shadow: var(--shadow);
-            backdrop-filter: blur(18px);
+            backdrop-filter: none;
         }
         .hero-panel {
             padding: 20px 22px;
@@ -821,7 +824,7 @@ def _dashboard_styles() -> str:
             align-items: center;
             gap: 8px;
             padding: 8px 14px;
-            border-radius: 999px;
+            border-radius: 8px;
             background: var(--chip-bg);
             border: 1px solid var(--border-strong);
             color: var(--accent-secondary);
@@ -832,9 +835,9 @@ def _dashboard_styles() -> str:
         }
         .dashboard-title {
             margin: 10px 0 8px;
-            font-size: clamp(2rem, 4vw, 3.4rem);
-            line-height: 0.98;
-            letter-spacing: -0.04em;
+            font-size: clamp(1.9rem, 3.2vw, 3rem);
+            line-height: 1.04;
+            letter-spacing: 0;
         }
         .dashboard-copy {
             margin: 0;
@@ -852,7 +855,7 @@ def _dashboard_styles() -> str:
         .signal-chip {
             min-width: 104px;
             padding: 10px 12px;
-            border-radius: 20px;
+            border-radius: 8px;
             background: linear-gradient(180deg, var(--surface-strong), var(--surface));
             border: 1px solid var(--border);
         }
@@ -873,7 +876,7 @@ def _dashboard_styles() -> str:
         }
         .theme-panel {
             padding: 16px;
-            border-radius: 24px;
+            border-radius: 8px;
             background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent);
             border: 1px solid var(--border);
         }
@@ -939,7 +942,7 @@ def _dashboard_styles() -> str:
         }
         .section-meta {
             padding: 8px 12px;
-            border-radius: 999px;
+            border-radius: 8px;
             background: var(--chip-bg);
             border: 1px solid var(--border);
             color: var(--accent-primary);
@@ -954,13 +957,13 @@ def _dashboard_styles() -> str:
             align-items: start;
         }
         .workspace-grid.workspace-grid--approved {
-            grid-template-columns: minmax(0, 1fr);
+            grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
         }
         .workspace-main {
             min-width: 0;
         }
         .workspace-main.workspace-main--approved {
-            grid-column: 1 / -1;
+            grid-column: 1;
         }
         .sidebar-card {
             position: sticky;
@@ -968,6 +971,11 @@ def _dashboard_styles() -> str:
         }
         .sidebar-card.sidebar-card--hidden {
             display: none;
+        }
+        .provenance-card.provenance-card--approved {
+            display: block;
+            grid-column: 2;
+            grid-row: 1;
         }
         .sidebar-section + .sidebar-section {
             margin-top: 18px;
@@ -995,7 +1003,7 @@ def _dashboard_styles() -> str:
         }
         .action-button {
             border: 1px solid var(--border-strong);
-            border-radius: 999px;
+            border-radius: 8px;
             background: linear-gradient(180deg, var(--surface-strong), var(--surface));
             color: var(--text-primary);
             padding: 10px 16px;
@@ -1016,7 +1024,7 @@ def _dashboard_styles() -> str:
         .filter-field {
             height: 100%;
             padding: 14px;
-            border-radius: 22px;
+            border-radius: 8px;
             background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent);
             border: 1px solid var(--grid-border);
         }
@@ -1037,7 +1045,7 @@ def _dashboard_styles() -> str:
         }
         .filter-panel.filter-panel--compact .filter-field {
             padding: 10px 12px;
-            border-radius: 18px;
+            border-radius: 8px;
         }
         .filter-panel.filter-panel--compact .control-label {
             margin-bottom: 6px;
@@ -1060,7 +1068,7 @@ def _dashboard_styles() -> str:
             background: var(--surface-soft) !important;
             border-color: var(--border) !important;
             color: var(--text-primary) !important;
-            border-radius: 16px !important;
+            border-radius: 8px !important;
             box-shadow: none !important;
         }
         .theme-dropdown .Select-control,
@@ -1142,7 +1150,7 @@ def _dashboard_styles() -> str:
             flex: 0 0 auto;
             max-width: 220px;
             border: 1px solid var(--border);
-            border-radius: 16px;
+            border-radius: 8px;
             background: rgba(255, 255, 255, 0.02);
             color: var(--text-primary);
             padding: 10px 14px;
@@ -1200,7 +1208,7 @@ def _dashboard_styles() -> str:
         }
         .graph-action-button {
             border: 1px solid var(--border);
-            border-radius: 999px;
+            border-radius: 8px;
             background: var(--surface-soft);
             color: var(--text-primary);
             padding: 8px 12px;
@@ -1213,7 +1221,7 @@ def _dashboard_styles() -> str:
         .graph-prompt-input {
             flex: 1 1 260px;
             min-height: 40px;
-            border-radius: 999px;
+            border-radius: 8px;
             border: 1px solid var(--border);
             background: var(--surface-soft);
             color: var(--text-primary);
@@ -1251,7 +1259,7 @@ def _dashboard_styles() -> str:
         .graph-kind {
             align-self: flex-start;
             padding: 8px 12px;
-            border-radius: 999px;
+            border-radius: 8px;
             background: var(--chip-bg);
             border: 1px solid var(--border);
             color: var(--accent-secondary);
@@ -1268,7 +1276,7 @@ def _dashboard_styles() -> str:
             gap: 12px;
             margin-bottom: 14px;
             padding: 14px 16px;
-            border-radius: 18px;
+            border-radius: 8px;
             background: linear-gradient(180deg, var(--surface-strong), var(--surface));
             border: 1px solid var(--border);
         }
@@ -1297,7 +1305,7 @@ def _dashboard_styles() -> str:
         }
         .quality-item {
             padding: 12px 14px;
-            border-radius: 18px;
+            border-radius: 8px;
             border: 1px solid var(--border);
             background: rgba(255, 255, 255, 0.03);
         }
@@ -1318,7 +1326,7 @@ def _dashboard_styles() -> str:
             display: inline-flex;
             margin-bottom: 8px;
             padding: 4px 9px;
-            border-radius: 999px;
+            border-radius: 8px;
             font-family: 'IBM Plex Mono', 'Consolas', monospace;
             font-size: 11px;
             letter-spacing: 0.12em;
@@ -1333,12 +1341,12 @@ def _dashboard_styles() -> str:
         .dashboard-graph .js-plotly-plot .plotly,
         .dashboard-graph .js-plotly-plot,
         .dashboard-graph {
-            border-radius: 24px;
+            border-radius: 8px;
             overflow: hidden;
         }
         .dashboard-shell .js-plotly-plot .plotly .modebar {
             background: rgba(0, 0, 0, 0.18);
-            border-radius: 12px;
+            border-radius: 8px;
             padding: 4px;
         }
         .dashboard-shell .js-plotly-plot .plotly .modebar-btn path {
@@ -1380,7 +1388,7 @@ def _dashboard_styles() -> str:
             .panel-card,
             .graph-card,
             .empty-state {
-                border-radius: 24px;
+                border-radius: 8px;
             }
             .dashboard-title {
                 font-size: clamp(2.2rem, 11vw, 3.6rem);
@@ -1407,7 +1415,7 @@ def _dashboard_index_string() -> str:
         "{%css%}"
         "<link rel='preconnect' href='https://fonts.googleapis.com'>"
         "<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>"
-        "<link href='https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap' rel='stylesheet'>"
+        "<link href='https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap' rel='stylesheet'>"
         f"<style>{_dashboard_styles()}</style>"
         "</head>"
         "<body>"
@@ -1542,10 +1550,10 @@ def _build_hero(design: DashboardSpec, df: pd.DataFrame, filter_count: int) -> h
                     html.Div(
                         className="theme-panel",
                         children=[
-                            html.H2("Adaptive Theme Engine"),
+                            html.H2("Run Command Center"),
                             html.P(
-                                "Flip the interface between crafted light and dark palettes. "
-                                "The surrounding UI and each Plotly visualization update together."
+                                "Review the generated dashboard, keep the provenance rail open, "
+                                "and switch chart contrast when the analysis context requires it."
                             ),
                             html.Div(
                                 className="theme-toggle-row",

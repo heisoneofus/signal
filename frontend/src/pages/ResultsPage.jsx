@@ -175,19 +175,44 @@ function FilterChips({ payload, selectedFilters, onChange }) {
 
 function InsightPanel({ payload, open, onOpenChange }) {
   const metrics = payload.analysis?.metrics || {};
+  const spec = payload.dashboard_spec || {};
+  const transforms = spec.transform_history?.length
+    ? spec.transform_history
+    : ["Baseline data preserved", "Chart-ready figures rendered", "Session artifacts retained"];
 
   return (
     <aside className="insight-panel">
       <DataQualityPanel payload={payload} compact open={open} onOpenChange={onOpenChange} />
-      {open ? (
-        <section>
-          <div className="insight-heading">
-            <Icon name="spark" size={16} />
-            <span>Primary metrics</span>
-          </div>
-          <div className="reasoning-box">{compactList(metrics.primary_metrics)}</div>
-        </section>
-      ) : null}
+      <section>
+        <div className="insight-heading">
+          <Icon name="spark" size={16} />
+          <span>Primary metrics</span>
+        </div>
+        <div className="reasoning-box">{compactList(metrics.primary_metrics)}</div>
+      </section>
+      <section>
+        <div className="insight-heading">
+          <Icon name="review" size={16} />
+          <span>AI reasoning</span>
+        </div>
+        <div className="reasoning-box">
+          {spec.plan_summary || "Signal selected these visuals from the dataset profile, available metrics, and chart-safe dimensions."}
+        </div>
+      </section>
+      <section>
+        <div className="insight-heading">
+          <Icon name="filter" size={16} />
+          <span>Provenance</span>
+        </div>
+        <ul className="transform-list">
+          {transforms.map((item) => (
+            <li key={item}>
+              <Icon name="filter" size={15} />
+              {item}
+            </li>
+          ))}
+        </ul>
+      </section>
     </aside>
   );
 }
@@ -355,7 +380,7 @@ export function ResultsPage() {
         ))}
       </div>
 
-      <div className={`dashboard-content${qualityOpen ? " dashboard-content--with-insights" : ""}`}>
+      <div className={`dashboard-content dashboard-content--inspector${qualityOpen ? " dashboard-content--with-insights" : ""}`}>
         <InsightPanel payload={payload} open={qualityOpen} onOpenChange={setQualityOpen} />
 
         <div className="chart-layout">

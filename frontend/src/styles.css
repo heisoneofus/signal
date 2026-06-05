@@ -1,27 +1,28 @@
 :root {
-  --page: #020618;
-  --panel: #0f172b;
-  --panel-strong: #111c33;
-  --panel-soft: #17223a;
-  --line: #1d293d;
-  --line-strong: #263754;
+  --page: #050812;
+  --panel: #101827;
+  --panel-strong: #132034;
+  --panel-soft: #18263a;
+  --line: #243044;
+  --line-strong: #33425a;
   --text: #f1f5f9;
   --muted: #90a1b9;
   --subtle: #62748e;
-  --indigo: #7c86ff;
-  --primary: #4f39f6;
-  --purple: #9810fa;
-  --success: #00d492;
-  --warning: #ffb900;
+  --indigo: #6ea8ff;
+  --primary: #376dff;
+  --purple: #7c3aed;
+  --success: #14d49b;
+  --warning: #f8c14a;
   --danger: #ff6467;
-  --shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+  --cyan: #38bdf8;
+  --shadow: 0 18px 46px rgba(0, 0, 0, 0.28);
   --radius: 8px;
   color: var(--text);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "IBM Plex Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background:
-    linear-gradient(rgba(124, 134, 255, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(124, 134, 255, 0.055) 1px, transparent 1px),
-    linear-gradient(180deg, #020618 0%, #071021 50%, #020618 100%);
+    linear-gradient(rgba(56, 189, 248, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.045) 1px, transparent 1px),
+    linear-gradient(180deg, #050812 0%, #07111f 52%, #050812 100%);
   background-size: 44px 44px, 44px 44px, auto;
 }
 
@@ -110,8 +111,8 @@ code {
   place-items: center;
   flex: 0 0 auto;
   color: var(--text);
-  border: 1px solid rgba(124, 134, 255, 0.46);
-  background: linear-gradient(135deg, var(--primary), var(--purple));
+  border: 1px solid rgba(56, 189, 248, 0.36);
+  background: linear-gradient(135deg, #1d4ed8, #0891b2);
 }
 
 .brand-mark {
@@ -170,7 +171,7 @@ code {
 }
 
 .route-transition {
-  animation: route-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: route-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .landing-page {
@@ -289,9 +290,9 @@ code {
 }
 
 .button--primary {
-  background: linear-gradient(135deg, var(--primary), var(--purple));
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
   color: var(--text);
-  box-shadow: 0 18px 44px rgba(79, 57, 246, 0.34);
+  box-shadow: 0 14px 34px rgba(37, 99, 235, 0.26);
 }
 
 .button--secondary,
@@ -469,6 +470,7 @@ code {
 
 .file-field,
 .context-field,
+.upload-briefing-card,
 .quality-card,
 .data-table-card,
 .dashboard-chart,
@@ -484,13 +486,57 @@ code {
 .console-card {
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgba(15, 23, 43, 0.88);
+  background: rgba(16, 24, 39, 0.9);
   box-shadow: var(--shadow);
 }
 
 .file-field,
-.context-field {
+.context-field,
+.upload-briefing-card {
   padding: 14px;
+}
+
+.upload-briefing-card {
+  display: grid;
+  gap: 14px;
+  min-height: 245px;
+}
+
+.upload-briefing-card h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.upload-briefing-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.briefing-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.briefing-list li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: #0a1220;
+}
+
+.briefing-list svg {
+  margin-top: 2px;
+  color: var(--cyan);
 }
 
 .status {
@@ -690,7 +736,7 @@ code {
   height: 100%;
   min-width: 9%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--success), var(--indigo), var(--purple));
+  background: linear-gradient(90deg, var(--success), var(--cyan), var(--primary));
   transition: width 520ms ease;
   animation: progress-glow 1400ms ease-in-out infinite;
 }
@@ -844,13 +890,11 @@ code {
 @keyframes route-enter {
   from {
     opacity: 0;
-    filter: blur(4px);
-    transform: translateY(10px);
+    transform: translateY(6px);
   }
 
   to {
     opacity: 1;
-    filter: blur(0);
     transform: translateY(0);
   }
 }
@@ -948,15 +992,18 @@ code {
   align-items: start;
 }
 
+.dashboard-content--inspector,
 .dashboard-content--with-insights {
   grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
 }
 
+.dashboard-content--inspector .chart-layout,
 .dashboard-content--with-insights .chart-layout {
   grid-column: 1;
   grid-row: 1;
 }
 
+.dashboard-content--inspector .insight-panel,
 .dashboard-content--with-insights .insight-panel {
   grid-column: 2;
   grid-row: 1;
@@ -1269,6 +1316,19 @@ code {
   min-height: 430px;
 }
 
+.plan-card--primary {
+  grid-column: 1 / -1;
+  min-height: 610px;
+}
+
+.plan-card--primary .review-chart-frame {
+  min-height: 390px;
+}
+
+.plan-card--secondary {
+  min-height: 370px;
+}
+
 .plan-card--hero,
 .plan-card--wide {
   grid-column: 1 / -1;
@@ -1288,6 +1348,51 @@ code {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #080f20;
+}
+
+.review-decision-bar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.review-decision-bar div {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(16, 24, 39, 0.9);
+}
+
+.review-decision-bar span,
+.decision-strip span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.review-decision-bar strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.decision-strip {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid rgba(56, 189, 248, 0.26);
+  border-radius: 8px;
+  background: rgba(56, 189, 248, 0.075);
+}
+
+.decision-strip strong {
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 .prompt-inline--editable {
@@ -1566,6 +1671,8 @@ code {
     position: static;
   }
 
+  .dashboard-content--inspector .chart-layout,
+  .dashboard-content--inspector .insight-panel,
   .dashboard-content--with-insights .chart-layout,
   .dashboard-content--with-insights .insight-panel {
     grid-column: auto;

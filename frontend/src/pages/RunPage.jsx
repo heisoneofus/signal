@@ -80,9 +80,39 @@ function fileKind(name = "") {
   return "Dataset";
 }
 
+function UploadBriefingCard() {
+  return (
+    <aside className="upload-briefing-card" aria-label="Upload briefing">
+      <div className="card-heading">
+        <Icon name="shield" size={18} />
+        <span>Preflight Briefing</span>
+      </div>
+      <p>Signal will profile the uploaded file before it assigns a quality score or proposes transformations.</p>
+      <ul className="briefing-list">
+        <li>
+          <Icon name="data" size={16} />
+          <span>Schema, row count, and column types are inferred from the dataset.</span>
+        </li>
+        <li>
+          <Icon name="filter" size={16} />
+          <span>Missing values, duplicates, outliers, and chart-safe dimensions are checked during analysis.</span>
+        </li>
+        <li>
+          <Icon name="spark" size={16} />
+          <span>Optional context steers KPI selection and the first dashboard draft.</span>
+        </li>
+      </ul>
+    </aside>
+  );
+}
+
 function QualityCard({ preview }) {
   const score = Math.max(62, Math.round(94 - (preview?.missingRatio || 0) * 3));
   const missing = preview ? `${preview.missingRatio}%` : "Pending";
+
+  if (!preview) {
+    return <UploadBriefingCard />;
+  }
 
   return (
     <aside className="quality-card" aria-label="Data quality score">
@@ -110,7 +140,7 @@ function QualityCard({ preview }) {
           <span />
         </div>
       </div>
-      <p>Score will fully compute during AI processing.</p>
+      <p>Preview score uses visible CSV rows. Full quality scoring runs during AI processing.</p>
     </aside>
   );
 }
@@ -233,7 +263,7 @@ export function ProcessingPanel({ mode = "generate" }) {
       : PROCESSING_PHASES[(activeIndex + PROCESSING_PHASES.length - 1) % PROCESSING_PHASES.length];
   const activePhase = PROCESSING_PHASES[activeIndex];
   const nextPhase = PROCESSING_PHASES[(activeIndex + 1) % PROCESSING_PHASES.length];
-  const progress = Math.min(94, 12 + tick * 10);
+  const progress = Math.min(92, 18 + tick * 8);
   const heading = mode === "analyze" ? "Analyzing your data" : "Architecting your dashboard";
 
   return (
@@ -243,10 +273,12 @@ export function ProcessingPanel({ mode = "generate" }) {
           <Icon name="spark" size={28} />
         </span>
         <h2>{heading}</h2>
-        <p>The AI is analyzing patterns, transforming data, and building a visualization plan.</p>
-        <p className="processing-subtitle">This may take a minute or two. You can leave this tab open while Signal works.</p>
+        <p>Signal is moving through the analysis pipeline and will advance when the backend session is ready.</p>
+        <p className="processing-subtitle">
+          This may take a minute or two. The bar is an activity indicator, not a fixed ETA.
+        </p>
       </div>
-      <div className="processing-progress" aria-label={`Processing progress ${progress}%`}>
+      <div className="processing-progress" aria-label="Processing activity">
         <span style={{ width: `${progress}%` }} />
       </div>
       <div className="processing-steps">

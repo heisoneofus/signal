@@ -101,6 +101,7 @@ code {
 .brand-link {
   justify-self: start;
   gap: 10px;
+  min-height: 40px;
   font-weight: 800;
 }
 
@@ -132,7 +133,7 @@ code {
 }
 
 .topnav__link {
-  min-height: 36px;
+  min-height: 40px;
   gap: 8px;
   padding: 8px 12px;
   border-radius: 6px;
@@ -343,6 +344,15 @@ code {
 .state-panel {
   display: grid;
   gap: 18px;
+}
+
+.data-workflow,
+.workflow-header,
+.workflow-header > *,
+.upload-context-row,
+.data-grid,
+.data-table-card {
+  min-width: 0;
 }
 
 .review-page,
@@ -1043,8 +1053,8 @@ code {
 }
 
 .icon-button {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   border-color: var(--line-strong);
   background: #0a1224;
@@ -1219,9 +1229,10 @@ code {
 }
 
 .prompt-inline button {
+  min-height: 40px;
   border: 0;
   border-radius: 6px;
-  padding: 6px 9px;
+  padding: 8px 10px;
   color: var(--text);
   background: var(--primary);
   cursor: pointer;
@@ -1402,7 +1413,7 @@ code {
 }
 
 .prompt-inline--editable input {
-  min-height: 36px;
+  min-height: 40px;
   padding: 7px 9px;
   border: 0;
   background: transparent;
@@ -1429,6 +1440,8 @@ code {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  min-height: 40px;
+  width: 100%;
   border: 0;
   padding: 0;
   color: var(--text);
@@ -1436,6 +1449,7 @@ code {
   cursor: pointer;
   font: inherit;
   font-weight: 900;
+  text-align: left;
 }
 
 .quality-panel__toggle span {
@@ -1517,10 +1531,10 @@ code {
 }
 
 .filter-chip {
-  min-height: 34px;
+  min-height: 40px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 7px 10px;
+  padding: 8px 11px;
   color: var(--muted);
   background: #080f20;
   cursor: pointer;
@@ -1569,6 +1583,7 @@ code {
 .export-menu__list button {
   display: block;
   width: 100%;
+  min-height: 40px;
   border: 0;
   border-radius: 6px;
   padding: 9px 10px;
@@ -1589,7 +1604,14 @@ code {
 
 .chart-heading__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+@media (hover: none), (pointer: coarse), (max-width: 760px) {
+  .plotly-chart-frame .modebar {
+    display: none !important;
+  }
 }
 
 .icon-button--up svg {
@@ -1729,6 +1751,10 @@ code {
   }
 
   .plan-card-list--canvas {
+    grid-template-columns: 1fr;
+  }
+
+  .review-decision-bar {
     grid-template-columns: 1fr;
   }
 

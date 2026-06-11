@@ -54,6 +54,39 @@ function MetricCard({ icon, label, value }) {
 function ExportMenu({ sessionId, targetRef, selectedFilters }) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState("");
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    function handlePointerDown(event) {
+      if (menuRef.current?.contains(event.target)) {
+        return;
+      }
+      setOpen(false);
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    function handleScroll() {
+      setOpen(false);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("scroll", handleScroll, true);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, [open]);
 
   async function exportPng() {
     setOpen(false);
@@ -112,7 +145,7 @@ function ExportMenu({ sessionId, targetRef, selectedFilters }) {
   }
 
   return (
-    <div className="export-menu">
+    <div className="export-menu" ref={menuRef}>
       <button className="button button--secondary" type="button" onClick={() => setOpen((current) => !current)}>
         <Icon name="download" size={16} />
         Export

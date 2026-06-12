@@ -19,15 +19,18 @@ function scoreTone(score = 0) {
 export function DataQualityPanel({ payload, defaultOpen = false, open: controlledOpen, onOpenChange, compact = false }) {
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
   const open = controlledOpen ?? internalOpen;
+  const hasPayload = Boolean(payload);
   const profile = payload?.dataset_profile || {};
   const quality = payload?.analysis?.quality || {};
   const metrics = payload?.analysis?.metrics || {};
   const filters = payload?.dashboard_spec?.filters || [];
-  const score = profile.quality_score ?? (quality.issues?.length ? 100 - quality.issues.length * 8 : 100);
+  const score = hasPayload ? profile.quality_score ?? (quality.issues?.length ? 100 - quality.issues.length * 8 : 100) : null;
   const dimensions = useMemo(() => {
     return profile.dimensions?.length ? profile.dimensions : metrics.dimensions || [];
   }, [metrics.dimensions, profile.dimensions]);
-  const tone = scoreTone(score);
+  const tone = hasPayload ? scoreTone(score) : "pending";
+  const scoreLabel = hasPayload ? `${score}/100` : "Pending";
+
   function toggleOpen() {
     const nextOpen = !open;
     setInternalOpen(nextOpen);
@@ -46,14 +49,16 @@ export function DataQualityPanel({ payload, defaultOpen = false, open: controlle
           <Icon name="shield" size={16} />
           Data Quality Assessment
         </span>
-        <strong>{score}/100</strong>
+        <strong>{scoreLabel}</strong>
       </button>
 
       <div className="quality-panel__summary">
-        Filters and dimensions ready: {filters.length || 0} filters, {dimensions.length || 0} dimensions
+        {hasPayload
+          ? `Filters and dimensions ready: ${filters.length || 0} filters, ${dimensions.length || 0} dimensions`
+          : "Load a session to inspect filters, dimensions, and quality signals."}
       </div>
 
-      {open ? (
+      {open && hasPayload ? (
         <div className="quality-panel__body">
           <div className="quality-stat-grid">
             <div>

@@ -287,6 +287,55 @@ describe("frontend pages", () => {
     expect(navigateMock).toHaveBeenCalledWith("/results/session_123");
   });
 
+  it("keeps dashboard generation disabled until the review draft finishes loading", async () => {
+    let resolveSession;
+    const sessionPromise = new Promise((resolve) => {
+      resolveSession = resolve;
+    });
+
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ items: [] }),
+      })
+      .mockReturnValueOnce(sessionPromise);
+
+    render(
+      <MemoryRouter future={routerFuture} initialEntries={["/update/session_123"]}>
+        <Routes>
+          <Route path="/update/:sessionId" element={<UpdatePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("button", { name: /loading draft/i })).toBeDisabled();
+    expect(screen.getByText(/wait for draft details/i)).toBeInTheDocument();
+    expect(screen.getByText(/loading the active visualization plan/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /data quality assessment/i })).toHaveTextContent(/pending/i);
+    expect(screen.queryByText(/100\/100/i)).not.toBeInTheDocument();
+
+    resolveSession({
+      ok: true,
+      json: async () => ({
+        session_id: "session_123",
+        status: "reviewed",
+        analysis: null,
+        dataset_profile: { row_count: 1, column_count: 2, quality_score: 88, filter_options: { region: ["EU"] }, dimensions: ["region"] },
+        dashboard_spec: {
+          title: "Sales Overview",
+          visuals: [{ id: "visual_1", chart_type: "bar", title: "Sales by Region", layout_size: "wide" }],
+          filters: ["region"],
+        },
+        figures: [{ data: [{ x: ["EU"], y: [10] }], layout: {} }],
+        artifacts: [],
+      }),
+    });
+
+    expect(await screen.findByRole("button", { name: /generate dashboard/i })).toBeEnabled();
+    expect(screen.getByText(/1 proposed visual/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /data quality assessment/i })).toHaveTextContent(/88\/100/i);
+  });
+
   it("filters, exports, and reorders charts on the results page", async () => {
     global.fetch
       .mockResolvedValueOnce({

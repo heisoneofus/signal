@@ -209,6 +209,18 @@ export function UpdatePage() {
   const figures = payload?.figures || [];
   const primaryVisual = visuals[0];
   const secondaryVisuals = visuals.slice(1);
+  const draftReady = Boolean(payload);
+  const generateDisabled = !sessionId || loading || finalizing || !draftReady;
+  const reviewQueueLabel = loading
+    ? "Loading draft..."
+    : visuals.length
+      ? `${visuals.length} proposed visual${visuals.length === 1 ? "" : "s"}`
+      : "No proposed visuals";
+  const nextDecisionLabel = loading
+    ? "Wait for draft details"
+    : visuals.length
+      ? "Approve the lead chart, then tune supporting views"
+      : "Load a session to begin";
 
   return (
     <section className="review-page review-page--wide">
@@ -225,9 +237,9 @@ export function UpdatePage() {
             <Link className="button button--secondary" to="/sessions">
               Sessions
             </Link>
-            <button className="button button--primary" disabled={!sessionId || finalizing} onClick={handleGenerateDashboard} type="button">
+            <button className="button button--primary" disabled={generateDisabled} onClick={handleGenerateDashboard} type="button">
               <Icon name="dashboard" size={16} />
-              {finalizing ? "Generating..." : "Generate Dashboard"}
+              {loading ? "Loading Draft..." : finalizing ? "Generating..." : "Generate Dashboard"}
             </button>
           </div>
         </div>
@@ -251,15 +263,15 @@ export function UpdatePage() {
         <div className="review-decision-bar">
           <div>
             <span>Review queue</span>
-            <strong>{visuals.length ? `${visuals.length} proposed visual${visuals.length === 1 ? "" : "s"}` : "No proposed visuals"}</strong>
+            <strong>{reviewQueueLabel}</strong>
           </div>
           <div>
             <span>Next decision</span>
-            <strong>{visuals.length ? "Approve the lead chart, then tune supporting views" : "Load a session to begin"}</strong>
+            <strong>{nextDecisionLabel}</strong>
           </div>
           <div>
             <span>Output</span>
-            <strong>{payload?.dashboard_spec?.layout ? humanizeName(payload.dashboard_spec.layout) : "Dashboard draft"}</strong>
+            <strong>{loading ? "Loading draft" : payload?.dashboard_spec?.layout ? humanizeName(payload.dashboard_spec.layout) : "Dashboard draft"}</strong>
           </div>
         </div>
 
@@ -292,7 +304,9 @@ export function UpdatePage() {
             </>
           ) : (
             <article className="plan-card">
-              <div className="empty-state">Load a session to review the active visualization plan.</div>
+              <div className="empty-state">
+                {loading ? "Loading the active visualization plan..." : "Load a session to review the active visualization plan."}
+              </div>
             </article>
           )}
         </div>

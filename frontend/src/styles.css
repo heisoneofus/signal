@@ -1476,6 +1476,11 @@ code {
   background: rgba(255, 95, 120, 0.12);
 }
 
+.quality-panel--pending .quality-panel__toggle strong {
+  color: var(--muted);
+  background: rgba(144, 161, 185, 0.12);
+}
+
 .quality-panel__summary {
   color: var(--muted);
   font-size: 0.86rem;

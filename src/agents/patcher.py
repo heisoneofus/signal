@@ -46,6 +46,16 @@ def _find_visual_by_hint(visuals: Iterable[VisualSpec], prompt: str) -> VisualSp
 
 def _extract_chart_type(prompt: str) -> str | None:
     lowered = _normalize(prompt)
+    chart_tokens = sorted(_CHART_TYPES.items(), key=lambda item: len(item[0]), reverse=True)
+    destination_patterns = [
+        r"(?:to|as|into|with)\s+(?:a\s+|an\s+)?{token}\b",
+        r"(?:make|show|render|switch|change)\s+(?:it\s+|this\s+|the\s+)?(?:chart\s+|visual\s+|visualization\s+)?(?:as\s+|to\s+|into\s+)?(?:a\s+|an\s+)?{token}\b",
+    ]
+    for token, chart_type in chart_tokens:
+        token_pattern = re.escape(token).replace(r"\ ", r"\s+")
+        for pattern in destination_patterns:
+            if re.search(pattern.format(token=token_pattern), lowered):
+                return chart_type
     for token, chart_type in _CHART_TYPES.items():
         if token in lowered:
             return chart_type

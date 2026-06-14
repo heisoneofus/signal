@@ -210,7 +210,14 @@ export function UpdatePage() {
   const primaryVisual = visuals[0];
   const secondaryVisuals = visuals.slice(1);
   const draftReady = Boolean(payload);
-  const generateDisabled = !sessionId || loading || finalizing || !draftReady;
+  const generateDisabled = !sessionId || loading || submitting || finalizing || !draftReady;
+  const generateButtonLabel = loading
+    ? "Loading Draft..."
+    : submitting
+      ? "Applying Updates..."
+      : finalizing
+        ? "Generating..."
+        : "Generate Dashboard";
   const reviewQueueLabel = loading
     ? "Loading draft..."
     : visuals.length
@@ -239,7 +246,7 @@ export function UpdatePage() {
             </Link>
             <button className="button button--primary" disabled={generateDisabled} onClick={handleGenerateDashboard} type="button">
               <Icon name="dashboard" size={16} />
-              {loading ? "Loading Draft..." : finalizing ? "Generating..." : "Generate Dashboard"}
+              {generateButtonLabel}
             </button>
           </div>
         </div>

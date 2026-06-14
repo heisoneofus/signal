@@ -287,6 +287,90 @@ describe("frontend pages", () => {
     expect(navigateMock).toHaveBeenCalledWith("/results/session_123");
   });
 
+  it("prevents final generation while a chart update is still applying", async () => {
+    let resolveUpdate;
+    const updatePromise = new Promise((resolve) => {
+      resolveUpdate = resolve;
+    });
+
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          items: [{ session_id: "session_123", title: "Sales Overview", status: "reviewed", created_at: "now", updated_at: "now" }],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          session_id: "session_123",
+          status: "reviewed",
+          analysis: null,
+          dataset_profile: { row_count: 1, column_count: 2, quality_score: 100, filter_options: { region: ["EU"] }, dimensions: ["region"] },
+          dashboard_spec: {
+            title: "Sales Overview",
+            visuals: [{ id: "visual_1", chart_type: "bar", title: "Sales by Region", layout_size: "wide" }],
+            filters: ["region"],
+          },
+          figures: [{ data: [{ x: ["EU"], y: [10] }], layout: {} }],
+          artifacts: [],
+        }),
+      })
+      .mockReturnValueOnce(updatePromise)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          session_id: "session_123",
+          session_status: "generated",
+          dashboard_spec: {
+            title: "Sales Overview",
+            visuals: [{ id: "visual_1", chart_type: "scatter", title: "Updated" }],
+            filters: ["region"],
+          },
+          figures: [{ data: [{ x: ["EU"], y: [10] }], layout: {} }],
+          artifacts: [],
+        }),
+      });
+
+    render(
+      <MemoryRouter future={routerFuture} initialEntries={["/update/session_123"]}>
+        <Routes>
+          <Route path="/update/:sessionId" element={<UpdatePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("button", { name: /generate dashboard/i })).toBeEnabled();
+    await userEvent.type(screen.getByLabelText(/update prompt for sales by region/i), "Change to a scatter chart");
+    await userEvent.click(screen.getByRole("button", { name: /update sales by region/i }));
+
+    const applyingButton = screen.getByRole("button", { name: /applying updates/i });
+    expect(applyingButton).toBeDisabled();
+    await userEvent.click(applyingButton);
+    expect(navigateMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveUpdate({
+        ok: true,
+        json: async () => ({
+          session_id: "session_123",
+          session_status: "reviewed",
+          dashboard_spec: {
+            title: "Sales Overview",
+            visuals: [{ id: "visual_1", chart_type: "scatter", title: "Updated" }],
+            filters: ["region"],
+          },
+          figures: [{ data: [{ x: ["EU"], y: [10] }], layout: {} }],
+          artifacts: [],
+        }),
+      });
+    });
+
+    expect(await screen.findByRole("button", { name: /generate dashboard/i })).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: /generate dashboard/i }));
+    expect(navigateMock).toHaveBeenCalledWith("/results/session_123");
+  });
+
   it("keeps dashboard generation disabled until the review draft finishes loading", async () => {
     let resolveSession;
     const sessionPromise = new Promise((resolve) => {

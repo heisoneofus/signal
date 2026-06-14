@@ -154,7 +154,7 @@ function ExportMenu({ sessionId, targetRef, selectedFilters }) {
         <div className="export-menu__list" role="menu">
           <button role="menuitem" type="button" onClick={exportPdf}>PDF</button>
           <button role="menuitem" type="button" onClick={exportPng}>PNG</button>
-          <button role="menuitem" type="button" onClick={copySnapshotUrl}>Snapshot URL</button>
+          <button role="menuitem" type="button" onClick={copySnapshotUrl}>Copy Snapshot URL</button>
         </div>
       ) : null}
       {status ? <span className="export-status">{status}</span> : null}

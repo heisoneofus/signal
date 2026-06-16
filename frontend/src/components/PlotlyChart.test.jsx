@@ -13,6 +13,7 @@ vi.mock("react-plotly.js/factory", () => ({
           data-testid="plotly-inner"
           data-title={layout?.title?.text || ""}
           data-hover={data?.[0]?.hovertemplate || ""}
+          data-modebar={String(config?.displayModeBar)}
           data-logo={String(config?.displaylogo)}
           data-plotly-heatmap={String(plotlyFactoryState.supportsHeatmap)}
           data-revision={String(revision)}
@@ -95,5 +96,15 @@ describe("PlotlyChart", () => {
     render(<PlotlyChart figure={{ data: [{ type: "heatmap", z: [[1]] }], layout: {} }} title="Heatmap" />);
 
     expect(await screen.findByTestId("plotly-inner")).toHaveAttribute("data-plotly-heatmap", "true");
+  });
+
+  it("keeps Plotly's embedded modebar hidden to avoid chart legend overlap", async () => {
+    const { PlotlyChart } = await import("./PlotlyChart");
+
+    render(<PlotlyChart figure={{ data: [{ x: ["Chat"], y: [12] }], layout: {} }} title="Tickets" />);
+
+    const chart = await screen.findByTestId("plotly-inner");
+    expect(chart).toHaveAttribute("data-modebar", "false");
+    expect(chart).toHaveAttribute("data-logo", "false");
   });
 });

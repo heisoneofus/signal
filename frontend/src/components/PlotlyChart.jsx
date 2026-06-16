@@ -126,6 +126,7 @@ export function PlotlyChart({ figure = {}, title }) {
             title: { text: "" },
           }}
           config={{
+            displayModeBar: false,
             displaylogo: false,
             responsive: true,
             modeBarButtonsToRemove: ["lasso2d", "select2d", "autoScale2d"],

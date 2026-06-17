@@ -420,6 +420,61 @@ describe("frontend pages", () => {
     expect(screen.getByRole("button", { name: /data quality assessment/i })).toHaveTextContent(/88\/100/i);
   });
 
+  it("renders missing review draft figures from the session figure endpoint", async () => {
+    global.fetch.mockImplementation((url) => {
+      const target = String(url);
+      if (target.endsWith("/sessions/session_123/figures")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            session_id: "session_123",
+            figures: [{ data: [{ x: ["EU"], y: [10] }], layout: {} }],
+          }),
+        });
+      }
+      if (target.endsWith("/sessions/session_123")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            session_id: "session_123",
+            status: "planned",
+            analysis: null,
+            dataset_profile: { row_count: 1, column_count: 2, quality_score: 88, filter_options: { region: ["EU"] }, dimensions: ["region"] },
+            dashboard_spec: {
+              title: "Sales Overview",
+              visuals: [{ id: "visual_1", chart_type: "bar", title: "Sales by Region", layout_size: "wide" }],
+              filters: ["region"],
+            },
+            figures: [],
+            artifacts: [],
+          }),
+        });
+      }
+      if (target.endsWith("/sessions")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ items: [] }),
+        });
+      }
+      return Promise.reject(new Error(`Unhandled fetch: ${target}`));
+    });
+
+    render(
+      <MemoryRouter future={routerFuture} initialEntries={["/update/session_123"]}>
+        <Routes>
+          <Route path="/update/:sessionId" element={<UpdatePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(/1 proposed visual/i)).toBeInTheDocument();
+    expect(await screen.findByTestId("plotly-chart")).toHaveTextContent("1");
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/sessions/session_123/figures"),
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
   it("filters, exports, and reorders charts on the results page", async () => {
     global.fetch
       .mockResolvedValueOnce({

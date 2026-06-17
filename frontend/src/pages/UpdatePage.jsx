@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { fetchSession, fetchSessions, finalizeSession, updateDashboard } from "../api";
+import { fetchSession, fetchSessions, finalizeSession, renderSessionFigures, updateDashboard } from "../api";
 import { DataQualityPanel } from "../components/DataQualityPanel";
 import { Icon } from "../components/Icons";
 import { PlotlyChart } from "../components/PlotlyChart";
@@ -139,6 +139,20 @@ export function UpdatePage() {
           setPayload(detail);
           setSessionId(targetSessionId);
           rememberSession(targetSessionId);
+        }
+        if (active && detail?.dashboard_spec?.visuals?.length && !detail?.figures?.length) {
+          const response = await renderSessionFigures(targetSessionId, {});
+          if (active) {
+            setPayload((current) => {
+              if (!current || current.session_id !== targetSessionId) {
+                return current;
+              }
+              return {
+                ...current,
+                figures: response.figures || [],
+              };
+            });
+          }
         }
       } catch (loadError) {
         if (active) {

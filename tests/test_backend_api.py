@@ -7,6 +7,8 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.main import create_app
+from src.models import SessionState
+from src.services import ApplicationService
 
 
 def _client(tmp_path: Path) -> TestClient:
@@ -339,3 +341,30 @@ def test_generate_stored_endpoint_processes_preuploaded_dataset(tmp_path: Path) 
     assert payload["session_id"].startswith("session_")
     assert payload["figures"]
     assert payload["dashboard_spec"]["title"]
+
+
+def test_remote_artifact_listing_skips_absent_transformed_dataset(tmp_path: Path) -> None:
+    class RecordingRemoteStore:
+        is_remote = True
+
+        def __init__(self) -> None:
+            self.exists_calls: list[str] = []
+
+        def exists(self, key: str) -> bool:
+            self.exists_calls.append(key)
+            return False
+
+        def list_keys(self, prefix: str) -> list[str]:
+            return []
+
+        def location(self, key: str) -> str:
+            return key
+
+    service = ApplicationService(root_dir=tmp_path)
+    store = RecordingRemoteStore()
+    service.artifact_store = store  # type: ignore[assignment]
+    service.remote_artifacts_enabled = True
+
+    service.list_artifacts("session_20260618_000000", state=SessionState(session_id="session_20260618_000000"))
+
+    assert "outputs/transformed_session_20260618_000000.parquet" not in store.exists_calls

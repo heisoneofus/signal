@@ -217,7 +217,6 @@ class ApplicationService:
             artifacts.dashboard_spec_key(session_id),
             artifacts.figures_key(session_id),
             artifacts.context_key(session_id),
-            artifacts.transformed_dataset_key(session_id),
         ]
         for key in keys_to_hydrate:
             if self.artifact_store.exists(key):
@@ -268,7 +267,9 @@ class ApplicationService:
         if artifact_type == "transformed_dataset":
             if state and state.transformed_dataset and not self._is_local_path_reference(state.transformed_dataset):
                 return state.transformed_dataset
-            return artifacts.transformed_dataset_key(session_id)
+            if state and state.transformed_dataset:
+                return artifacts.transformed_dataset_key(session_id)
+            return None
         if artifact_type == "source":
             if state and state.data_path and not self._is_local_path_reference(state.data_path):
                 return state.data_path

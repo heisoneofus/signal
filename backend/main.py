@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
+import os
 from pathlib import Path
+import sys
 
 from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from loguru import logger
 
 from backend.errors import ApiError
 from backend.schemas import (
@@ -21,6 +25,13 @@ from backend.schemas import (
     UpdateResponse,
 )
 import src.services.artifacts as artifact_service
+
+
+def configure_runtime_logging() -> None:
+    logger.remove()
+    logger.add(sys.stdout, level=os.getenv("SIGNAL_LOG_LEVEL", "INFO").upper())
+    for logger_name in ("httpx", "httpcore", "openai"):
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
 
 
 class LazyApplicationService:
@@ -40,6 +51,7 @@ class LazyApplicationService:
 
 
 def create_app(root_dir: Path | None = None) -> FastAPI:
+    configure_runtime_logging()
     resolved_root = (root_dir or Path(__file__).resolve().parent.parent).resolve()
     service = LazyApplicationService(root_dir=resolved_root)
 

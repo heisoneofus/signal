@@ -1755,6 +1755,24 @@ code {
     grid-column: auto;
   }
 
+  .dashboard-chart {
+    min-height: 430px;
+    grid-template-rows: auto minmax(350px, 1fr);
+  }
+
+  .dashboard-chart--compact {
+    min-height: 390px;
+  }
+
+  .dashboard-chart--tall {
+    min-height: 540px;
+  }
+
+  .plotly-chart,
+  .chart-loading {
+    min-height: 350px;
+  }
+
   .plan-card-list--canvas {
     grid-template-columns: 1fr;
   }

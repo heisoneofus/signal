@@ -56,6 +56,14 @@ export function PlotlyChart({ figure = {}, title }) {
   const [containerWidth, setContainerWidth] = useState(0);
   const sourceLayout = figure.layout || {};
   const data = (figure.data || []).map(humanizeTrace);
+  const isCompact = containerWidth > 0 && containerWidth < 520;
+  const chartFontSize = isCompact ? 13 : 12;
+  const axisFontSize = isCompact ? 12 : 11;
+  const layoutMargin = isCompact
+    ? { l: 50, r: 12, t: 16, b: 58 }
+    : { l: 42, r: 18, t: 20, b: 42 };
+  const xaxis = humanizeAxis(sourceLayout.xaxis || {});
+  const yaxis = humanizeAxis(sourceLayout.yaxis || {});
 
   useEffect(() => {
     const element = containerRef.current;
@@ -94,28 +102,42 @@ export function PlotlyChart({ figure = {}, title }) {
             ...sourceLayout,
             autosize: true,
             ...(containerWidth ? { width: containerWidth } : {}),
-            font: { color: "#cbd5e1", family: "IBM Plex Sans, Inter, sans-serif", size: 12 },
-            margin: { l: 42, r: 18, t: 20, b: 42 },
+            font: { color: "#cbd5e1", family: "IBM Plex Sans, Inter, sans-serif", size: chartFontSize },
+            margin: layoutMargin,
             paper_bgcolor: "rgba(0,0,0,0)",
             plot_bgcolor: "#080f20",
             xaxis: {
               gridcolor: "#1d293d",
               linecolor: "#263754",
               zerolinecolor: "#263754",
-              ...humanizeAxis(sourceLayout.xaxis || {}),
+              ...xaxis,
+              tickfont: { size: axisFontSize, color: "#7f91b4", ...(sourceLayout.xaxis?.tickfont || {}) },
+              title: xaxis.title
+                ? {
+                    ...(typeof xaxis.title === "object" ? xaxis.title : {}),
+                    font: { size: axisFontSize, color: "#7f91b4", ...(sourceLayout.xaxis?.title?.font || {}) },
+                  }
+                : xaxis.title,
             },
             yaxis: {
               gridcolor: "#1d293d",
               linecolor: "#263754",
               zerolinecolor: "#263754",
-              ...humanizeAxis(sourceLayout.yaxis || {}),
+              ...yaxis,
+              tickfont: { size: axisFontSize, color: "#7f91b4", ...(sourceLayout.yaxis?.tickfont || {}) },
+              title: yaxis.title
+                ? {
+                    ...(typeof yaxis.title === "object" ? yaxis.title : {}),
+                    font: { size: axisFontSize, color: "#7f91b4", ...(sourceLayout.yaxis?.title?.font || {}) },
+                  }
+                : yaxis.title,
             },
             legend: {
               ...(sourceLayout.legend || {}),
               title: sourceLayout.legend?.title?.text
                 ? { ...sourceLayout.legend.title, text: humanizeFieldName(sourceLayout.legend.title.text) }
                 : sourceLayout.legend?.title,
-              font: { color: "#9dafd4", ...(sourceLayout.legend?.font || {}) },
+              font: { color: "#9dafd4", size: axisFontSize, ...(sourceLayout.legend?.font || {}) },
             },
             hoverlabel: {
               bgcolor: "#f8fafc",

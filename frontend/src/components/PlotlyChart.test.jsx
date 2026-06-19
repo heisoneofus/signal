@@ -18,6 +18,9 @@ vi.mock("react-plotly.js/factory", () => ({
           data-plotly-heatmap={String(plotlyFactoryState.supportsHeatmap)}
           data-revision={String(revision)}
           data-width={String(layout?.width || "")}
+          data-font-size={String(layout?.font?.size || "")}
+          data-margin-bottom={String(layout?.margin?.b || "")}
+          data-x-tick-size={String(layout?.xaxis?.tickfont?.size || "")}
         >
           {data?.length ?? 0}
         </div>
@@ -88,6 +91,38 @@ describe("PlotlyChart", () => {
     const chart = await screen.findByTestId("plotly-inner");
     await waitFor(() => expect(chart).toHaveAttribute("data-width", "360"));
     expect(chart).toHaveAttribute("data-revision", "360");
+  });
+
+  it("uses larger chart typography and margins on narrow containers", async () => {
+    global.ResizeObserver = class ResizeObserver {
+      constructor(callback) {
+        resizeCallback = callback;
+      }
+
+      observe() {
+        resizeCallback([{ contentRect: { width: 390 } }]);
+      }
+
+      disconnect() {}
+    };
+
+    const { PlotlyChart } = await import("./PlotlyChart");
+
+    render(
+      <PlotlyChart
+        figure={{
+          data: [{ x: ["2026-01-01"], y: [42] }],
+          layout: { xaxis: { title: { text: "created_at" } } },
+        }}
+        title="Tickets"
+      />,
+    );
+
+    const chart = await screen.findByTestId("plotly-inner");
+    await waitFor(() => expect(chart).toHaveAttribute("data-width", "390"));
+    expect(chart).toHaveAttribute("data-font-size", "13");
+    expect(chart).toHaveAttribute("data-x-tick-size", "12");
+    expect(chart).toHaveAttribute("data-margin-bottom", "58");
   });
 
   it("loads the Plotly bundle that supports heatmap traces", async () => {

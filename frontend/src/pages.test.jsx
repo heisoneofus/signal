@@ -610,6 +610,7 @@ describe("frontend pages", () => {
     );
 
     expect(await screen.findByText(/created may 28, 2026/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: /dashboard sessions/i })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /rename sales overview/i }));
     await userEvent.clear(screen.getByLabelText(/dashboard name/i));
     await userEvent.type(screen.getByLabelText(/dashboard name/i), "Revenue Overview");

@@ -82,7 +82,7 @@ export function SessionsPage() {
       <div className="panel__header">
         <div>
           <p className="eyebrow">Sessions</p>
-          <h2>Dashboard Sessions</h2>
+          <h1>Dashboard Sessions</h1>
         </div>
         <Link className="button button--primary" to="/upload">
           New run

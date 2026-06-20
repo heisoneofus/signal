@@ -379,6 +379,7 @@ code {
 .workflow-header h1,
 .dashboard-toolbar h1,
 .review-plan__header h1,
+.panel__header h1,
 .panel__header h2,
 .processing-title h2 {
   margin: 0;

@@ -202,6 +202,21 @@ describe("frontend pages", () => {
     expect(screen.queryByText(/\+12\.5%/i)).not.toBeInTheDocument();
   });
 
+  it("shows a visible dashboard loading state while results are fetched", async () => {
+    global.fetch.mockImplementationOnce(() => new Promise(() => {}));
+
+    render(
+      <MemoryRouter future={routerFuture} initialEntries={["/results/session_123"]}>
+        <Routes>
+          <Route path="/results/:sessionId" element={<ResultsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("heading", { level: 1, name: /loading dashboard/i })).toBeInTheDocument();
+    expect(screen.getByText(/fetching the session, figures, and chart assets/i)).toBeInTheDocument();
+  });
+
   it("keeps dashboard filter chips focused on readable categorical values", async () => {
     global.fetch.mockResolvedValueOnce({
       ok: true,

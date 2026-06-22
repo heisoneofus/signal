@@ -30,4 +30,18 @@ describe("App routing", () => {
     expect(screen.getByRole("button", { name: /review draft dashboard/i })).toBeInTheDocument();
     expect(screen.getByTestId("route-transition")).toHaveAttribute("data-route-path", "/upload");
   });
+
+  it("renders the product updates feed from merge history", () => {
+    render(
+      <MemoryRouter future={routerFuture} initialEntries={["/product-updates"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("heading", { name: /product updates/i })).toBeInTheDocument();
+    expect(screen.getAllByTestId("product-update-post")).toHaveLength(8);
+    expect(screen.getByText(/sessions heading hierarchy polish/i)).toBeInTheDocument();
+    expect(screen.getByText(/signal product relaunch/i)).toBeInTheDocument();
+    expect(screen.getByText(/june 20, 2026/i)).toBeInTheDocument();
+  });
 });

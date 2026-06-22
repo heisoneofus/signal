@@ -84,6 +84,56 @@ describe("frontend pages", () => {
     expect(navigateMock).toHaveBeenCalledWith("/update/session_123");
   });
 
+  it("submits Google Sheets generation after loading and choosing a worksheet", async () => {
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          spreadsheet_id: "sheet123",
+          title: "Revenue Ops",
+          worksheets: [
+            { sheet_id: 0, title: "Q1 Sales", index: 0, row_count: 20, column_count: 4 },
+            { sheet_id: 202, title: "Q2 Sales", index: 1, row_count: 30, column_count: 4 },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ session_id: "session_123" }),
+      });
+
+    render(
+      <MemoryRouter future={routerFuture}>
+        <RunPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(screen.getByRole("tab", { name: /google sheets/i }));
+    await userEvent.type(screen.getByLabelText(/google sheet url/i), "https://docs.google.com/spreadsheets/d/sheet123/edit");
+    await userEvent.click(screen.getByRole("button", { name: /load sheets/i }));
+    expect(await screen.findByRole("combobox", { name: /worksheet/i })).toHaveValue("0");
+
+    await userEvent.selectOptions(screen.getByLabelText(/worksheet/i), "202");
+    await userEvent.type(screen.getByLabelText(/context/i), "Focus on quarterly revenue");
+    await userEvent.click(screen.getByRole("button", { name: /review draft dashboard/i }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/generate/google-sheets"),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            spreadsheet_url: "https://docs.google.com/spreadsheets/d/sheet123/edit",
+            worksheet_id: 202,
+            access_token: null,
+            context_text: "Focus on quarterly revenue",
+          }),
+        }),
+      );
+    });
+    expect(navigateMock).toHaveBeenCalledWith("/update/session_123");
+  });
+
   it("updates the processing screen while generation is running", async () => {
     vi.useFakeTimers();
 

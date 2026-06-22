@@ -17,6 +17,9 @@ from backend.schemas import (
     FigureFilterRequest,
     FiguresResponse,
     GenerateResponse,
+    GoogleSheetsDatasetRequest,
+    GoogleSheetsWorksheetsRequest,
+    GoogleSheetsWorksheetsResponse,
     SessionDetailResponse,
     SessionPatchRequest,
     SessionsListResponse,
@@ -25,6 +28,7 @@ from backend.schemas import (
     UpdateResponse,
 )
 import src.services.artifacts as artifact_service
+from src.services.google_sheets import GoogleSheetsError
 
 
 def configure_runtime_logging() -> None:
@@ -121,6 +125,38 @@ def create_app(root_dir: Path | None = None) -> FastAPI:
             artifacts=result.artifacts,
         )
 
+    @app.post("/google-sheets/worksheets", response_model=GoogleSheetsWorksheetsResponse)
+    async def google_sheets_worksheets(payload: GoogleSheetsWorksheetsRequest) -> GoogleSheetsWorksheetsResponse:
+        try:
+            result = service.list_google_sheets_worksheets(
+                spreadsheet_url=payload.spreadsheet_url,
+                spreadsheet_id=payload.spreadsheet_id,
+                access_token=payload.access_token,
+            )
+        except GoogleSheetsError as exc:
+            raise ApiError(exc.code, exc.message, exc.status_code, exc.details) from exc
+        return GoogleSheetsWorksheetsResponse(**result)
+
+    @app.post("/analyze/google-sheets", response_model=AnalyzeResponse)
+    async def analyze_google_sheets(payload: GoogleSheetsDatasetRequest) -> AnalyzeResponse:
+        try:
+            result = service.analyze_google_sheet(
+                spreadsheet_url=payload.spreadsheet_url,
+                spreadsheet_id=payload.spreadsheet_id,
+                worksheet_id=payload.worksheet_id,
+                worksheet_name=payload.worksheet_name,
+                access_token=payload.access_token,
+                context_text=payload.context_text,
+            )
+        except GoogleSheetsError as exc:
+            raise ApiError(exc.code, exc.message, exc.status_code, exc.details) from exc
+        return AnalyzeResponse(
+            session_id=result.session_id,
+            analysis=result.analysis.model_dump(),
+            dashboard_spec=result.dashboard_spec.model_dump(),
+            artifacts=result.artifacts,
+        )
+
     @app.post("/generate", response_model=GenerateResponse)
     async def generate(
         dataset: UploadFile = File(...),
@@ -132,6 +168,28 @@ def create_app(root_dir: Path | None = None) -> FastAPI:
             content=content,
             context_text=context_text,
         )
+        return GenerateResponse(
+            session_id=result.session_id,
+            analysis=result.analysis.model_dump(),
+            dashboard_spec=result.dashboard_spec.model_dump(),
+            figures=result.figures,
+            session_status=result.session_status,
+            artifacts=result.artifacts,
+        )
+
+    @app.post("/generate/google-sheets", response_model=GenerateResponse)
+    async def generate_google_sheets(payload: GoogleSheetsDatasetRequest) -> GenerateResponse:
+        try:
+            result = service.generate_google_sheet(
+                spreadsheet_url=payload.spreadsheet_url,
+                spreadsheet_id=payload.spreadsheet_id,
+                worksheet_id=payload.worksheet_id,
+                worksheet_name=payload.worksheet_name,
+                access_token=payload.access_token,
+                context_text=payload.context_text,
+            )
+        except GoogleSheetsError as exc:
+            raise ApiError(exc.code, exc.message, exc.status_code, exc.details) from exc
         return GenerateResponse(
             session_id=result.session_id,
             analysis=result.analysis.model_dump(),

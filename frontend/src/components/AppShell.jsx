@@ -28,6 +28,7 @@ function navItemsForSession(sessionId) {
   return [
     ...items,
     { to: "/sessions", label: "Sessions", icon: "database" },
+    { to: "/product-updates", label: "Product Updates", icon: "calendar" },
   ];
 }
 

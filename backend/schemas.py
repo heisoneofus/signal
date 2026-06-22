@@ -44,6 +44,32 @@ class StoredDatasetRequest(BaseModel):
     context_text: str | None = None
 
 
+class GoogleSheetsWorksheetsRequest(BaseModel):
+    spreadsheet_url: str | None = None
+    spreadsheet_id: str | None = None
+    access_token: str | None = None
+
+
+class GoogleSheetsDatasetRequest(GoogleSheetsWorksheetsRequest):
+    worksheet_id: int | None = None
+    worksheet_name: str | None = None
+    context_text: str | None = None
+
+
+class GoogleWorksheetResponse(BaseModel):
+    sheet_id: int
+    title: str
+    index: int
+    row_count: int | None = None
+    column_count: int | None = None
+
+
+class GoogleSheetsWorksheetsResponse(BaseModel):
+    spreadsheet_id: str
+    title: str
+    worksheets: list[GoogleWorksheetResponse] = Field(default_factory=list)
+
+
 class UpdateResponse(BaseModel):
     session_id: str
     dashboard_spec: dict[str, Any]

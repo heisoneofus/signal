@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { apiFetch, finalizeSession, resolveApiBaseUrl, selectUploadStrategy, shouldUseStoredUploads } from "./api";
+import {
+  apiFetch,
+  finalizeSession,
+  listGoogleWorksheets,
+  resolveApiBaseUrl,
+  runGoogleSheetDataset,
+  selectUploadStrategy,
+  shouldUseStoredUploads,
+} from "./api";
 
 describe("api helpers", () => {
   it("prefers an explicit API base URL override", () => {
@@ -108,5 +116,60 @@ describe("api helpers", () => {
         fileSize: 6 * 1024 * 1024,
       }),
     ).toBe("direct");
+  });
+
+  it("lists Google worksheets through the API", async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => "application/json" },
+      json: async () => ({ spreadsheet_id: "sheet123", title: "Revenue Ops", worksheets: [] }),
+    });
+
+    const result = await listGoogleWorksheets("https://docs.google.com/spreadsheets/d/sheet123/edit", "token-123");
+
+    expect(result.title).toBe("Revenue Ops");
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/google-sheets/worksheets"),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          spreadsheet_url: "https://docs.google.com/spreadsheets/d/sheet123/edit",
+          access_token: "token-123",
+        }),
+      }),
+    );
+  });
+
+  it("runs Google Sheet generation with the selected worksheet id", async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: { get: () => "application/json" },
+      json: async () => ({ session_id: "session_123" }),
+    });
+
+    await runGoogleSheetDataset(
+      "/generate",
+      {
+        spreadsheetUrl: "https://docs.google.com/spreadsheets/d/sheet123/edit",
+        worksheetId: "101",
+        accessToken: "",
+      },
+      "Show revenue",
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/generate/google-sheets"),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          spreadsheet_url: "https://docs.google.com/spreadsheets/d/sheet123/edit",
+          worksheet_id: 101,
+          access_token: null,
+          context_text: "Show revenue",
+        }),
+      }),
+    );
   });
 });

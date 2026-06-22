@@ -1,8 +1,12 @@
 import React, { startTransition, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { uploadDataset } from "../api";
+import { listGoogleWorksheets, runGoogleSheetDataset, uploadDataset } from "../api";
 import { Icon } from "../components/Icons";
+
+const GOOGLE_SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets.readonly";
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+let googleIdentityScriptPromise = null;
 
 function formatBytes(bytes = 0) {
   if (!bytes) {
@@ -80,14 +84,62 @@ function fileKind(name = "") {
   return "Dataset";
 }
 
-function UploadBriefingCard() {
+function loadGoogleIdentityScript() {
+  if (window.google?.accounts?.oauth2) {
+    return Promise.resolve(window.google);
+  }
+  if (!googleIdentityScriptPromise) {
+    googleIdentityScriptPromise = new Promise((resolve, reject) => {
+      const existingScript = document.querySelector("script[data-signal-google-identity]");
+      if (existingScript) {
+        existingScript.addEventListener("load", () => resolve(window.google));
+        existingScript.addEventListener("error", () => reject(new Error("Google authorization failed to load.")));
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.dataset.signalGoogleIdentity = "true";
+      script.onload = () => resolve(window.google);
+      script.onerror = () => reject(new Error("Google authorization failed to load."));
+      document.head.appendChild(script);
+    });
+  }
+  return googleIdentityScriptPromise;
+}
+
+async function requestGoogleSheetsToken() {
+  if (!GOOGLE_CLIENT_ID) {
+    throw new Error("Set VITE_GOOGLE_CLIENT_ID to connect private Google Sheets.");
+  }
+  const google = await loadGoogleIdentityScript();
+  return new Promise((resolve, reject) => {
+    const tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: GOOGLE_SHEETS_SCOPE,
+      callback: (response) => {
+        if (response?.error) {
+          reject(new Error(response.error_description || response.error));
+          return;
+        }
+        resolve(response?.access_token || "");
+      },
+    });
+    tokenClient.requestAccessToken({ prompt: "consent" });
+  });
+}
+
+function UploadBriefingCard({ sourceType = "file" }) {
+  const sourceLabel = sourceType === "google_sheets" ? "selected worksheet" : "uploaded file";
   return (
     <aside className="upload-briefing-card" aria-label="Upload briefing">
       <div className="card-heading">
         <Icon name="shield" size={18} />
         <span>Preflight Briefing</span>
       </div>
-      <p>Signal will profile the uploaded file before it assigns a quality score or proposes transformations.</p>
+      <p>Signal will profile the {sourceLabel} before it assigns a quality score or proposes transformations.</p>
       <ul className="briefing-list">
         <li>
           <Icon name="data" size={16} />
@@ -106,12 +158,12 @@ function UploadBriefingCard() {
   );
 }
 
-function QualityCard({ preview }) {
+function QualityCard({ preview, sourceType = "file" }) {
   const score = Math.max(62, Math.round(94 - (preview?.missingRatio || 0) * 3));
   const missing = preview ? `${preview.missingRatio}%` : "Pending";
 
   if (!preview) {
-    return <UploadBriefingCard />;
+    return <UploadBriefingCard sourceType={sourceType} />;
   }
 
   return (
@@ -145,14 +197,18 @@ function QualityCard({ preview }) {
   );
 }
 
-function StructuredPreview({ preview }) {
+function StructuredPreview({ preview, sourceType = "file" }) {
   if (!preview?.headers?.length) {
+    const emptyMessage =
+      sourceType === "google_sheets"
+        ? "Choose a Google worksheet to inspect it during analysis."
+        : "Upload a CSV to inspect column types before analysis.";
     return (
       <section className="data-table-card">
         <div className="panel-header">
           <div>
             <h2>Structured Preview</h2>
-            <p>Upload a CSV to inspect column types before analysis.</p>
+            <p>{emptyMessage}</p>
           </div>
         </div>
         <div className="empty-state">No preview rows available yet.</div>
@@ -314,11 +370,18 @@ export function ProcessingPanel({ mode = "generate" }) {
 
 export function RunPage() {
   const navigate = useNavigate();
+  const [sourceType, setSourceType] = useState("file");
   const [file, setFile] = useState(null);
   const [contextText, setContextText] = useState("");
   const [busyAction, setBusyAction] = useState("");
   const [error, setError] = useState("");
   const [preview, setPreview] = useState(null);
+  const [sheetUrl, setSheetUrl] = useState("");
+  const [sheetWorkbook, setSheetWorkbook] = useState(null);
+  const [selectedSheetId, setSelectedSheetId] = useState("");
+  const [sheetLoading, setSheetLoading] = useState(false);
+  const [googleAccessToken, setGoogleAccessToken] = useState("");
+  const [googleStatus, setGoogleStatus] = useState("");
 
   const fileSummary = useMemo(() => {
     if (!file) {
@@ -329,8 +392,34 @@ export function RunPage() {
     return `${columns} - ${rows} - ${formatBytes(file.size)} - Detected encoding: UTF-8`;
   }, [file, preview]);
 
+  const selectedWorksheet = useMemo(() => {
+    if (!sheetWorkbook?.worksheets?.length || !selectedSheetId) {
+      return null;
+    }
+    return sheetWorkbook.worksheets.find((worksheet) => String(worksheet.sheet_id) === String(selectedSheetId)) || null;
+  }, [selectedSheetId, sheetWorkbook]);
+
+  const sourceSummary = useMemo(() => {
+    if (sourceType === "google_sheets") {
+      if (!sheetWorkbook) {
+        return "Connect a Google spreadsheet, then choose one worksheet for Signal to analyze.";
+      }
+      const worksheetPart = selectedWorksheet ? `${selectedWorksheet.title}` : "worksheet pending";
+      const dimensions =
+        selectedWorksheet?.row_count && selectedWorksheet?.column_count
+          ? `${selectedWorksheet.row_count.toLocaleString()} rows - ${selectedWorksheet.column_count.toLocaleString()} columns`
+          : "sheet dimensions pending";
+      return `${sheetWorkbook.title} - ${worksheetPart} - ${dimensions}`;
+    }
+    return fileSummary || "CSV, Excel, and Parquet files are supported by the Signal analysis core.";
+  }, [fileSummary, selectedWorksheet, sheetWorkbook, sourceType]);
+
+  const sourceHeading = sourceType === "google_sheets" ? selectedWorksheet?.title || "Connect Google Sheets" : file?.name || "Upload a dataset";
+  const hasRunnableSource = sourceType === "google_sheets" ? !!selectedWorksheet && !!sheetUrl.trim() : !!file;
+
   async function handleFileChange(event) {
     const selectedFile = event.target.files?.[0] || null;
+    setSourceType("file");
     setFile(selectedFile);
     setError("");
     setPreview(null);
@@ -349,9 +438,47 @@ export function RunPage() {
     }
   }
 
+  async function handleGoogleConnect() {
+    setError("");
+    setGoogleStatus("");
+    try {
+      const token = await requestGoogleSheetsToken();
+      setGoogleAccessToken(token);
+      setGoogleStatus("Google Sheets connected for this session.");
+    } catch (authError) {
+      setError(authError.message || "Unable to connect Google Sheets.");
+    }
+  }
+
+  async function handleLoadSheets() {
+    if (!sheetUrl.trim()) {
+      setError("Enter a Google Sheets URL before loading worksheets.");
+      return;
+    }
+
+    setSourceType("google_sheets");
+    setSheetLoading(true);
+    setError("");
+    setSheetWorkbook(null);
+    setSelectedSheetId("");
+    try {
+      const workbook = await listGoogleWorksheets(sheetUrl, googleAccessToken);
+      setSheetWorkbook(workbook);
+      setSelectedSheetId(workbook.worksheets?.[0] ? String(workbook.worksheets[0].sheet_id) : "");
+    } catch (loadError) {
+      setError(loadError.message || "Unable to load worksheets from Google Sheets.");
+    } finally {
+      setSheetLoading(false);
+    }
+  }
+
   async function handleSubmit(mode) {
-    if (!file) {
+    if (sourceType === "file" && !file) {
       setError("Choose a dataset file before running analysis.");
+      return;
+    }
+    if (sourceType === "google_sheets" && !selectedWorksheet) {
+      setError("Load the Google spreadsheet and choose a worksheet before running analysis.");
       return;
     }
 
@@ -359,7 +486,18 @@ export function RunPage() {
     setError("");
     try {
       const endpoint = mode === "analyze" ? "/analyze" : "/generate";
-      const payload = await uploadDataset(endpoint, file, contextText);
+      const payload =
+        sourceType === "google_sheets"
+          ? await runGoogleSheetDataset(
+              endpoint,
+              {
+                spreadsheetUrl: sheetUrl,
+                worksheetId: selectedSheetId,
+                accessToken: googleAccessToken,
+              },
+              contextText,
+            )
+          : await uploadDataset(endpoint, file, contextText);
       try {
         window.localStorage.setItem("signal.currentSessionId", payload.session_id);
       } catch {
@@ -385,15 +523,15 @@ export function RunPage() {
         <div>
           <h1>
             <Icon name="file" size={24} />
-            {file?.name || "Upload a dataset"}
+            {sourceHeading}
           </h1>
-          <p>{fileSummary || "CSV, Excel, and Parquet files are supported by the Signal analysis core."}</p>
+          <p>{sourceSummary}</p>
         </div>
         <div className="workflow-actions">
-          <button type="button" className="button button--secondary" disabled={!!busyAction} onClick={() => handleSubmit("analyze")}>
+          <button type="button" className="button button--secondary" disabled={!!busyAction || !hasRunnableSource} onClick={() => handleSubmit("analyze")}>
             Analyze Only
           </button>
-          <button type="button" className="button button--primary" disabled={!!busyAction} onClick={() => handleSubmit("generate")}>
+          <button type="button" className="button button--primary" disabled={!!busyAction || !hasRunnableSource} onClick={() => handleSubmit("generate")}>
             <Icon name="database" size={16} />
             Review Draft Dashboard
             <Icon name="arrow" size={16} />
@@ -401,22 +539,98 @@ export function RunPage() {
         </div>
       </div>
 
+      <div className="source-switch" role="tablist" aria-label="Dataset source">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={sourceType === "file"}
+          className={`segmented-button ${sourceType === "file" ? "segmented-button--active" : ""}`}
+          onClick={() => {
+            setSourceType("file");
+            setError("");
+          }}
+        >
+          <Icon name="upload" size={16} />
+          File Upload
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={sourceType === "google_sheets"}
+          className={`segmented-button ${sourceType === "google_sheets" ? "segmented-button--active" : ""}`}
+          onClick={() => {
+            setSourceType("google_sheets");
+            setError("");
+          }}
+        >
+          <Icon name="database" size={16} />
+          Google Sheets
+        </button>
+      </div>
+
       <div className="upload-context-row">
-        <label className="field file-field">
-          <span>Dataset File</span>
-          <span className="file-picker">
-            <input
-              aria-label="Dataset File"
-              type="file"
-              accept=".csv,.xlsx,.xls,.parquet"
-              onChange={handleFileChange}
-            />
-            <span className="file-picker__name">
-              <Icon name="upload" size={16} />
-              {file?.name || "Choose CSV, Excel, or Parquet"}
+        {sourceType === "file" ? (
+          <label className="field file-field">
+            <span>Dataset File</span>
+            <span className="file-picker">
+              <input
+                aria-label="Dataset File"
+                type="file"
+                accept=".csv,.xlsx,.xls,.parquet"
+                onChange={handleFileChange}
+              />
+              <span className="file-picker__name">
+                <Icon name="upload" size={16} />
+                {file?.name || "Choose CSV, Excel, or Parquet"}
+              </span>
             </span>
-          </span>
-        </label>
+          </label>
+        ) : (
+          <section className="file-field google-sheet-field" aria-label="Google Sheets source">
+            <label className="field">
+              <span>Google Sheet URL</span>
+              <input
+                aria-label="Google Sheet URL"
+                placeholder="https://docs.google.com/spreadsheets/d/..."
+                value={sheetUrl}
+                onChange={(event) => {
+                  setSheetUrl(event.target.value);
+                  setSheetWorkbook(null);
+                  setSelectedSheetId("");
+                }}
+              />
+            </label>
+            <div className="sheet-actions">
+              <button type="button" className="button button--secondary" onClick={handleGoogleConnect}>
+                <Icon name="users" size={16} />
+                Connect Google
+              </button>
+              <button type="button" className="button button--primary" disabled={!sheetUrl.trim() || sheetLoading} onClick={handleLoadSheets}>
+                <Icon name="database" size={16} />
+                {sheetLoading ? "Loading Sheets" : "Load Sheets"}
+              </button>
+            </div>
+            {googleStatus ? <p className="status status--success">{googleStatus}</p> : null}
+            {sheetWorkbook?.worksheets?.length ? (
+              <label className="field">
+                <span>Worksheet</span>
+                <select
+                  aria-label="Worksheet"
+                  value={selectedSheetId}
+                  onChange={(event) => setSelectedSheetId(event.target.value)}
+                >
+                  {sheetWorkbook.worksheets.map((worksheet) => (
+                    <option key={worksheet.sheet_id} value={worksheet.sheet_id}>
+                      {worksheet.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <div className="sheet-empty-state">No worksheets loaded yet.</div>
+            )}
+          </section>
+        )}
 
         <label className="field context-field">
           <span>Context</span>
@@ -433,8 +647,8 @@ export function RunPage() {
       {error ? <p className="status status--error">{error}</p> : null}
 
       <div className="data-grid">
-        <QualityCard preview={preview} />
-        <StructuredPreview preview={preview} />
+        <QualityCard preview={sourceType === "file" ? preview : null} sourceType={sourceType} />
+        <StructuredPreview preview={sourceType === "file" ? preview : null} sourceType={sourceType} />
       </div>
     </section>
   );

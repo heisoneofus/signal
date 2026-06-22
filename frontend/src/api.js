@@ -136,6 +136,38 @@ export async function uploadDataset(path, file, contextText) {
   });
 }
 
+function normalizeAccessToken(accessToken = "") {
+  return accessToken.trim() || null;
+}
+
+export async function listGoogleWorksheets(spreadsheetUrl, accessToken = "") {
+  return apiFetch("/google-sheets/worksheets", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      spreadsheet_url: spreadsheetUrl.trim(),
+      access_token: normalizeAccessToken(accessToken),
+    }),
+  });
+}
+
+export async function runGoogleSheetDataset(path, sheetSource, contextText) {
+  return apiFetch(`${path}/google-sheets`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      spreadsheet_url: sheetSource.spreadsheetUrl.trim(),
+      worksheet_id: Number(sheetSource.worksheetId),
+      access_token: normalizeAccessToken(sheetSource.accessToken || ""),
+      context_text: contextText.trim() || null,
+    }),
+  });
+}
+
 export async function fetchSession(sessionId) {
   return apiFetch(`/sessions/${sessionId}`);
 }

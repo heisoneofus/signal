@@ -32,6 +32,7 @@ describe("AppShell", () => {
 
     expect(screen.queryByRole("link", { name: /3\. dashboard/i })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /sessions/i })).toHaveAttribute("href", "/sessions");
+    expect(screen.getByRole("link", { name: /product updates/i })).toHaveAttribute("href", "/product-updates");
   });
 
   it("shows review-first workflow navigation with current session links", () => {
@@ -49,6 +50,7 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: /2\. review/i })).toHaveAttribute("href", "/update/session_123");
     expect(screen.getByRole("link", { name: /3\. dashboard/i })).toHaveAttribute("href", "/results/session_123");
     expect(screen.getByRole("link", { name: /sessions/i })).toHaveAttribute("href", "/sessions");
+    expect(screen.getByRole("link", { name: /product updates/i })).toHaveAttribute("href", "/product-updates");
     expect(screen.queryByText(/ai review/i)).not.toBeInTheDocument();
   });
 });

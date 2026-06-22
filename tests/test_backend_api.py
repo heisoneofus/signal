@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from backend.main import create_app
 from src.models import SessionState
 from src.services import ApplicationService
+from src.services.google_sheets import GoogleSheetCsv, GoogleWorksheet, GoogleWorksheetsResult
 
 
 def _client(tmp_path: Path) -> TestClient:
@@ -341,6 +342,91 @@ def test_generate_stored_endpoint_processes_preuploaded_dataset(tmp_path: Path) 
     assert payload["session_id"].startswith("session_")
     assert payload["figures"]
     assert payload["dashboard_spec"]["title"]
+
+
+def test_google_sheets_worksheets_endpoint_lists_tabs(tmp_path: Path, monkeypatch) -> None:
+    class StubGoogleSheetsClient:
+        def list_worksheets(self, spreadsheet_url_or_id: str, *, access_token: str | None = None) -> GoogleWorksheetsResult:
+            assert spreadsheet_url_or_id == "https://docs.google.com/spreadsheets/d/sheet123/edit"
+            assert access_token == "token-123"
+            return GoogleWorksheetsResult(
+                spreadsheet_id="sheet123",
+                title="Revenue Ops",
+                worksheets=[
+                    GoogleWorksheet(sheet_id=101, title="Q1 Sales", index=0, row_count=12, column_count=3),
+                    GoogleWorksheet(sheet_id=202, title="Q2 Sales", index=1, row_count=8, column_count=3),
+                ],
+            )
+
+    monkeypatch.setattr("src.services.application.GoogleSheetsClient", StubGoogleSheetsClient)
+    client = _client(tmp_path)
+
+    response = client.post(
+        "/google-sheets/worksheets",
+        json={
+            "spreadsheet_url": "https://docs.google.com/spreadsheets/d/sheet123/edit",
+            "access_token": "token-123",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["spreadsheet_id"] == "sheet123"
+    assert payload["title"] == "Revenue Ops"
+    assert payload["worksheets"][0] == {
+        "sheet_id": 101,
+        "title": "Q1 Sales",
+        "index": 0,
+        "row_count": 12,
+        "column_count": 3,
+    }
+
+
+def test_generate_google_sheets_endpoint_materializes_selected_sheet(tmp_path: Path, monkeypatch) -> None:
+    class StubGoogleSheetsClient:
+        def fetch_sheet_csv(
+            self,
+            spreadsheet_url_or_id: str,
+            *,
+            worksheet_id: int | None = None,
+            worksheet_name: str | None = None,
+            access_token: str | None = None,
+        ) -> GoogleSheetCsv:
+            assert spreadsheet_url_or_id == "sheet123"
+            assert worksheet_id == 101
+            assert worksheet_name is None
+            assert access_token is None
+            return GoogleSheetCsv(
+                spreadsheet_id="sheet123",
+                spreadsheet_title="Revenue Ops",
+                worksheet_id=101,
+                worksheet_title="Q1 Sales",
+                filename="Revenue-Ops-Q1-Sales.csv",
+                content=b"region,sales,profit\nEU,10,4\nUS,20,9\n",
+            )
+
+    monkeypatch.setattr("src.services.application.GoogleSheetsClient", StubGoogleSheetsClient)
+    client = _client(tmp_path)
+
+    response = client.post(
+        "/generate/google-sheets",
+        json={
+            "spreadsheet_id": "sheet123",
+            "worksheet_id": 101,
+            "context_text": "Show sales and profit by region.",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["session_id"].startswith("session_")
+    assert payload["figures"]
+    artifact_types = {artifact["type"] for artifact in payload["artifacts"]}
+    assert "source" in artifact_types
+
+    source = client.get(f"/artifacts/{payload['session_id']}/source")
+    assert source.status_code == 200
+    assert "region,sales,profit" in source.text
 
 
 def test_remote_artifact_listing_skips_absent_transformed_dataset(tmp_path: Path) -> None:

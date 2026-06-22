@@ -16,6 +16,7 @@ from src.agents.patcher import apply_dashboard_patch, parse_update_prompt
 from src.config import AppConfig, LLMConfig
 from src.logging.session import SessionLogger, init_session_logger, load_dashboard_spec, load_session_metadata, load_session_state
 from src.models import AnalysisReport, DashboardSpec, ExecutionTrace, SessionState
+from src.services.google_sheets import GoogleSheetsClient
 import src.services.artifacts as artifacts
 from src.storage import ArtifactStore, create_artifact_store
 from src.tools import loaders
@@ -319,6 +320,61 @@ class ApplicationService:
             api_mode="analyze_stored",
         )
 
+    def list_google_sheets_worksheets(
+        self,
+        *,
+        spreadsheet_url: str | None = None,
+        spreadsheet_id: str | None = None,
+        access_token: str | None = None,
+    ) -> dict[str, Any]:
+        workbook = GoogleSheetsClient().list_worksheets(
+            spreadsheet_url or spreadsheet_id or "",
+            access_token=access_token,
+        )
+        return {
+            "spreadsheet_id": workbook.spreadsheet_id,
+            "title": workbook.title,
+            "worksheets": [
+                {
+                    "sheet_id": worksheet.sheet_id,
+                    "title": worksheet.title,
+                    "index": worksheet.index,
+                    "row_count": worksheet.row_count,
+                    "column_count": worksheet.column_count,
+                }
+                for worksheet in workbook.worksheets
+            ],
+        }
+
+    def analyze_google_sheet(
+        self,
+        *,
+        spreadsheet_url: str | None = None,
+        spreadsheet_id: str | None = None,
+        worksheet_id: int | None = None,
+        worksheet_name: str | None = None,
+        access_token: str | None = None,
+        context_text: str | None = None,
+    ) -> AnalyzeResult:
+        session_logger = init_session_logger(self.config.logs_dir)
+        session_id = session_logger.path.stem
+        source_path = self._materialize_google_sheet(
+            session_id=session_id,
+            spreadsheet_url=spreadsheet_url,
+            spreadsheet_id=spreadsheet_id,
+            worksheet_id=worksheet_id,
+            worksheet_name=worksheet_name,
+            access_token=access_token,
+        )
+        context_path = self._write_context_artifact(session_id, context_text)
+        return self._analyze_local_source(
+            session_id=session_id,
+            session_logger=session_logger,
+            source_path=source_path,
+            context_path=context_path,
+            api_mode="analyze_google_sheets",
+        )
+
     def generate_uploaded_dataset(
         self,
         *,
@@ -355,6 +411,35 @@ class ApplicationService:
             source_path=source_path,
             context_path=context_path,
             api_mode="generate_stored",
+        )
+
+    def generate_google_sheet(
+        self,
+        *,
+        spreadsheet_url: str | None = None,
+        spreadsheet_id: str | None = None,
+        worksheet_id: int | None = None,
+        worksheet_name: str | None = None,
+        access_token: str | None = None,
+        context_text: str | None = None,
+    ) -> GenerateResult:
+        session_logger = init_session_logger(self.config.logs_dir)
+        session_id = session_logger.path.stem
+        source_path = self._materialize_google_sheet(
+            session_id=session_id,
+            spreadsheet_url=spreadsheet_url,
+            spreadsheet_id=spreadsheet_id,
+            worksheet_id=worksheet_id,
+            worksheet_name=worksheet_name,
+            access_token=access_token,
+        )
+        context_path = self._write_context_artifact(session_id, context_text)
+        return self._generate_local_source(
+            session_id=session_id,
+            session_logger=session_logger,
+            source_path=source_path,
+            context_path=context_path,
+            api_mode="generate_google_sheets",
         )
 
     def _analyze_local_source(
@@ -896,6 +981,24 @@ class ApplicationService:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)
         return path
+
+    def _materialize_google_sheet(
+        self,
+        *,
+        session_id: str,
+        spreadsheet_url: str | None,
+        spreadsheet_id: str | None,
+        worksheet_id: int | None,
+        worksheet_name: str | None,
+        access_token: str | None,
+    ) -> Path:
+        sheet_csv = GoogleSheetsClient().fetch_sheet_csv(
+            spreadsheet_url or spreadsheet_id or "",
+            worksheet_id=worksheet_id,
+            worksheet_name=worksheet_name,
+            access_token=access_token,
+        )
+        return self._write_source_artifact(session_id, sheet_csv.filename, sheet_csv.content)
 
     def _write_context_artifact(self, session_id: str, context_text: str | None) -> Path | None:
         if not context_text:

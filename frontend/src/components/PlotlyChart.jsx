@@ -51,6 +51,34 @@ function humanizeAxis(axis = {}) {
   return next;
 }
 
+function isDateLikeDatum(value) {
+  if (value instanceof Date) {
+    return true;
+  }
+  return /^\d{4}[-/]\d{1,2}[-/]\d{1,2}(?:\b|T)/.test(String(value ?? "").trim());
+}
+
+function axisHasDateValues(traces, axisKey) {
+  return traces.some((trace) => {
+    const values = trace?.[axisKey];
+    if (!Array.isArray(values)) {
+      return false;
+    }
+    const sample = values.filter((value) => value !== null && value !== undefined && value !== "").slice(0, 5);
+    return sample.length > 0 && sample.every(isDateLikeDatum);
+  });
+}
+
+function temporalTickFormat(axis, traces, axisKey) {
+  if (axis.tickformat) {
+    return {};
+  }
+  if (axis.type === "date" || axisHasDateValues(traces, axisKey)) {
+    return { tickformat: "%b %-d" };
+  }
+  return {};
+}
+
 export function PlotlyChart({ figure = {}, title }) {
   const containerRef = useRef(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -64,6 +92,8 @@ export function PlotlyChart({ figure = {}, title }) {
     : { l: 42, r: 18, t: 20, b: 42 };
   const xaxis = humanizeAxis(sourceLayout.xaxis || {});
   const yaxis = humanizeAxis(sourceLayout.yaxis || {});
+  const xaxisTemporalFormat = temporalTickFormat(xaxis, data, "x");
+  const yaxisTemporalFormat = temporalTickFormat(yaxis, data, "y");
 
   useEffect(() => {
     const element = containerRef.current;
@@ -111,6 +141,7 @@ export function PlotlyChart({ figure = {}, title }) {
               linecolor: "#263754",
               zerolinecolor: "#263754",
               ...xaxis,
+              ...xaxisTemporalFormat,
               tickfont: { size: axisFontSize, color: "#7f91b4", ...(sourceLayout.xaxis?.tickfont || {}) },
               title: xaxis.title
                 ? {
@@ -124,6 +155,7 @@ export function PlotlyChart({ figure = {}, title }) {
               linecolor: "#263754",
               zerolinecolor: "#263754",
               ...yaxis,
+              ...yaxisTemporalFormat,
               tickfont: { size: axisFontSize, color: "#7f91b4", ...(sourceLayout.yaxis?.tickfont || {}) },
               title: yaxis.title
                 ? {

@@ -66,6 +66,8 @@ http://127.0.0.1:5173
 
 - `POST /analyze` uploads a dataset and returns analysis + dashboard spec
 - `POST /generate` runs the full pipeline and returns dashboard spec + Plotly figures
+- `POST /google-sheets/worksheets` lists worksheet tabs for a Google spreadsheet
+- `POST /analyze/google-sheets` and `POST /generate/google-sheets` run Signal from one selected worksheet
 - `POST /update` applies an update prompt to an existing session
 - `GET /sessions` lists prior runs from the persisted session artifacts
 - `GET /sessions/{id}` returns session metadata, analysis, spec, figures, and artifact links
@@ -157,6 +159,7 @@ npm run test:e2e:preview
 - Generated artifacts still live under `outputs/`
 - `OPENAI_API_KEY` enables LLM analysis; when it is absent, Signal runs a deterministic heuristic-only planning mode.
 - Browser uploads use direct API multipart by default, then switch to Vercel Blob for production files above `VITE_STORED_UPLOAD_THRESHOLD_MB` (default `4.5`). Set `VITE_USE_STORED_UPLOADS=true` to force Blob or `false` to force direct uploads.
+- Google Sheets sources require either `GOOGLE_SHEETS_API_KEY` on the backend for shared spreadsheets or `VITE_GOOGLE_CLIENT_ID` on the frontend for private-sheet OAuth.
 - The backend persists uploaded source files, context text, dashboard spec JSON, Plotly figure JSON, and transformed parquet artifacts for later session replay
 - The API intentionally keeps business logic out of routes; the core execution lives in `ApplicationService`
 

@@ -21,6 +21,7 @@ vi.mock("react-plotly.js/factory", () => ({
           data-font-size={String(layout?.font?.size || "")}
           data-margin-bottom={String(layout?.margin?.b || "")}
           data-x-tick-size={String(layout?.xaxis?.tickfont?.size || "")}
+          data-x-tickformat={String(layout?.xaxis?.tickformat || "")}
         >
           {data?.length ?? 0}
         </div>
@@ -123,6 +124,23 @@ describe("PlotlyChart", () => {
     expect(chart).toHaveAttribute("data-font-size", "13");
     expect(chart).toHaveAttribute("data-x-tick-size", "12");
     expect(chart).toHaveAttribute("data-margin-bottom", "58");
+  });
+
+  it("formats date axes without Plotly's compact year suffix", async () => {
+    const { PlotlyChart } = await import("./PlotlyChart");
+
+    render(
+      <PlotlyChart
+        figure={{
+          data: [{ x: ["2026-03-01", "2026-03-02"], y: [42, 48] }],
+          layout: { xaxis: { title: { text: "date" } } },
+        }}
+        title="Tickets"
+      />,
+    );
+
+    const chart = await screen.findByTestId("plotly-inner");
+    expect(chart).toHaveAttribute("data-x-tickformat", "%b %-d");
   });
 
   it("loads the Plotly bundle that supports heatmap traces", async () => {

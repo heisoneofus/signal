@@ -627,6 +627,32 @@ code {
   padding: 18px;
 }
 
+.state-panel--loading {
+  min-height: min(360px, calc(100vh - 180px));
+  place-content: center;
+  justify-items: center;
+  text-align: center;
+}
+
+.state-panel--loading h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(1.35rem, 2vw, 1.9rem);
+  line-height: 1.08;
+}
+
+.state-panel__icon {
+  width: 54px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 50%;
+  color: var(--cyan);
+  background: rgba(56, 189, 248, 0.1);
+  animation: status-pulse 1050ms ease-in-out infinite;
+}
+
 .card-heading,
 .insight-heading {
   gap: 8px;

@@ -15,7 +15,7 @@ export function LandingPage() {
         </div>
 
         <h1 id="landing-title">
-          <span>Upload your data.</span>
+          <span>Upload your data. </span>
           <span className="gradient-text">Get a dashboard with reasoning.</span>
         </h1>
 

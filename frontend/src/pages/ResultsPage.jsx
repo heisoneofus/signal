@@ -374,7 +374,17 @@ export function ResultsPage() {
   }
 
   if (loading) {
-    return <section className="state-panel"><p className="status">Loading session...</p></section>;
+    return (
+      <section className="state-panel state-panel--loading" aria-live="polite">
+        <span className="state-panel__icon">
+          <Icon name="dashboard" size={22} />
+        </span>
+        <div>
+          <h1>Loading dashboard</h1>
+          <p className="status">Fetching the session, figures, and chart assets.</p>
+        </div>
+      </section>
+    );
   }
 
   if (error && !payload) {

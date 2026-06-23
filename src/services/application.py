@@ -242,6 +242,25 @@ class ApplicationService:
                 session_ids.add(Path(name).stem)
         return sorted(session_ids, reverse=True)
 
+    def _summary_keys_from_store(self) -> dict[str, set[str]]:
+        session_keys: dict[str, set[str]] = {}
+        for key in self.artifact_store.list_keys("logs/session_"):
+            name = Path(key).name
+            if name.endswith(".state.json"):
+                session_id = name.removesuffix(".state.json")
+                session_keys.setdefault(session_id, set()).add("state")
+            elif name.endswith(".log"):
+                session_id = Path(name).stem
+                session_keys.setdefault(session_id, set()).add("log")
+        return session_keys
+
+    def _hydrate_remote_session_summary(self, session_id: str, available_keys: set[str]) -> None:
+        key = artifacts.state_key(session_id) if "state" in available_keys else artifacts.log_key(session_id)
+        try:
+            self._ensure_local_artifact(key)
+        except FileNotFoundError:
+            return
+
     def _is_local_path_reference(self, value: str) -> bool:
         return bool(value) and Path(value).is_absolute()
 
@@ -881,10 +900,11 @@ class ApplicationService:
             rendered_output=rendered_output,
         )
 
-    def list_sessions(self) -> list[SessionSummary]:
+    def list_sessions(self, *, limit: int = 25) -> list[SessionSummary]:
         if self.remote_artifacts_enabled:
-            for session_id in self._session_ids_from_store():
-                self._hydrate_remote_session(session_id)
+            summary_keys = self._summary_keys_from_store()
+            for session_id in sorted(summary_keys, reverse=True)[:limit]:
+                self._hydrate_remote_session_summary(session_id, summary_keys[session_id])
         state_files = sorted(self.config.logs_dir.glob("session_*.state.json"), key=lambda item: item.stat().st_mtime, reverse=True)
         seen: set[str] = set()
         summaries: list[SessionSummary] = []
@@ -908,6 +928,8 @@ class ApplicationService:
             session_id = log_file.stem
             if session_id in seen:
                 continue
+            if len(summaries) >= limit:
+                break
             metadata = load_session_metadata(log_file)
             try:
                 title = load_dashboard_spec(log_file).get("title", "Signal Dashboard")
@@ -922,7 +944,7 @@ class ApplicationService:
                     updated_at=str(log_file.stat().st_mtime),
                 )
             )
-        return sorted(summaries, key=lambda item: self._sort_timestamp(item.created_at), reverse=True)
+        return sorted(summaries, key=lambda item: self._sort_timestamp(item.created_at), reverse=True)[:limit]
 
     def get_session_detail(self, session_id: str) -> SessionDetail:
         self._hydrate_remote_session(session_id)

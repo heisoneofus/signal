@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import sys
 
-from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi import FastAPI, File, Form, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
@@ -265,8 +265,8 @@ def create_app(root_dir: Path | None = None) -> FastAPI:
         )
 
     @app.get("/sessions", response_model=SessionsListResponse)
-    async def list_sessions() -> SessionsListResponse:
-        return SessionsListResponse(items=[item.__dict__ for item in service.list_sessions()])
+    async def list_sessions(limit: int = Query(default=25, ge=1, le=100)) -> SessionsListResponse:
+        return SessionsListResponse(items=[item.__dict__ for item in service.list_sessions(limit=limit)])
 
     @app.get("/sessions/{session_id}", response_model=SessionDetailResponse)
     async def get_session(session_id: str) -> SessionDetailResponse:

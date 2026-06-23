@@ -10,6 +10,7 @@ from backend.main import create_app
 from src.models import SessionState
 from src.services import ApplicationService
 from src.services.google_sheets import GoogleSheetCsv, GoogleWorksheet, GoogleWorksheetsResult
+from src.storage import LocalArtifactStore
 
 
 def _client(tmp_path: Path) -> TestClient:
@@ -454,3 +455,50 @@ def test_remote_artifact_listing_skips_absent_transformed_dataset(tmp_path: Path
     service.list_artifacts("session_20260618_000000", state=SessionState(session_id="session_20260618_000000"))
 
     assert "outputs/transformed_session_20260618_000000.parquet" not in store.exists_calls
+
+
+def test_remote_session_list_uses_lightweight_limited_state_hydration(tmp_path: Path) -> None:
+    class TrackingRemoteStore(LocalArtifactStore):
+        is_remote = True
+
+        def __init__(self, root_dir: Path) -> None:
+            super().__init__(root_dir=root_dir)
+            self.materialized_keys: list[str] = []
+
+        def materialize(self, key: str, *, destination: Path | None = None) -> Path:
+            self.materialized_keys.append(key)
+            return super().materialize(key, destination=destination)
+
+    remote_root = tmp_path / "remote"
+    remote_logs = remote_root / "logs"
+    remote_outputs = remote_root / "outputs"
+    remote_logs.mkdir(parents=True)
+    remote_outputs.mkdir(parents=True)
+
+    for day in (21, 22, 23):
+        session_id = f"session_202606{day:02d}_063000_000000"
+        state = SessionState(
+            session_id=session_id,
+            status="reviewed",
+            created_at=f"2026-06-{day:02d}T06:30:00+00:00",
+            updated_at=f"2026-06-{day:02d}T06:31:00+00:00",
+        )
+        state.active_spec.title = f"Session {day}"
+        (remote_logs / f"{session_id}.state.json").write_text(state.model_dump_json(), encoding="utf-8")
+        (remote_outputs / f"source_{session_id}.csv").write_text("value\n1\n", encoding="utf-8")
+
+    service = ApplicationService(root_dir=tmp_path / "app")
+    store = TrackingRemoteStore(root_dir=remote_root)
+    service.artifact_store = store
+    service.remote_artifacts_enabled = True
+
+    sessions = service.list_sessions(limit=2)
+
+    assert [session.session_id for session in sessions] == [
+        "session_20260623_063000_000000",
+        "session_20260622_063000_000000",
+    ]
+    assert store.materialized_keys == [
+        "logs/session_20260623_063000_000000.state.json",
+        "logs/session_20260622_063000_000000.state.json",
+    ]

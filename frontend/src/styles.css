@@ -321,6 +321,13 @@ code {
   transform: none;
 }
 
+.button--primary:disabled {
+  border-color: var(--line-strong);
+  background: rgba(15, 23, 43, 0.9);
+  color: var(--subtle);
+  box-shadow: none;
+}
+
 .terminal-strip {
   width: min(760px, 100%);
   display: flex;
@@ -2012,11 +2019,52 @@ code {
     padding-inline: 14px;
   }
 
+  .topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px 12px;
+    padding: 12px 14px;
+  }
+
+  .brand-link {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+  }
+
+  .system-status {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    justify-content: flex-end;
+    white-space: nowrap;
+  }
+
+  .topnav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: flex;
+    justify-content: flex-start;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+
+  .topnav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .topnav__link {
+    flex: 0 0 auto;
+    width: auto;
+    scroll-snap-align: start;
+    white-space: nowrap;
+  }
+
   .landing-hero h1 {
     font-size: clamp(2.55rem, 16vw, 4rem);
   }
 
-  .topnav,
   .landing-actions,
   .workflow-actions,
   .dashboard-actions,
@@ -2030,7 +2078,6 @@ code {
     grid-template-columns: 1fr;
   }
 
-  .topnav__link,
   .button,
   .segmented-button {
     width: 100%;

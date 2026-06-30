@@ -27,12 +27,12 @@ export function LandingPage() {
         <div className="landing-actions">
           <Link className="button button--primary button--large" to="/upload">
             <Icon name="upload" size={18} />
-            Upload CSV
+            Upload Dataset
           </Link>
-          <button className="button button--secondary button--large" type="button" disabled>
+          <Link className="button button--secondary button--large" to="/upload?source=google_sheets">
             <Icon name="database" size={18} />
             Connect Sheets
-          </button>
+          </Link>
         </div>
 
         <div className="terminal-strip" aria-hidden="true">

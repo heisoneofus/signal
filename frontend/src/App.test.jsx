@@ -15,7 +15,8 @@ describe("App routing", () => {
     );
 
     expect(screen.getByRole("heading", { name: /upload your data/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /upload csv/i })).toHaveAttribute("href", "/upload");
+    expect(screen.getByRole("link", { name: /upload dataset/i })).toHaveAttribute("href", "/upload");
+    expect(screen.getByRole("link", { name: /connect sheets/i })).toHaveAttribute("href", "/upload?source=google_sheets");
     expect(screen.getByTestId("landing-gradient-wave")).toHaveAttribute("aria-hidden", "true");
   });
 
@@ -28,6 +29,18 @@ describe("App routing", () => {
 
     expect(screen.getByLabelText(/dataset file/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /review draft dashboard/i })).toBeInTheDocument();
+    expect(screen.getByTestId("route-transition")).toHaveAttribute("data-route-path", "/upload");
+  });
+
+  it("opens the Google Sheets source when requested from the landing page", () => {
+    render(
+      <MemoryRouter future={routerFuture} initialEntries={["/upload?source=google_sheets"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("tab", { name: /google sheets/i })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByLabelText(/google sheet url/i)).toBeInTheDocument();
     expect(screen.getByTestId("route-transition")).toHaveAttribute("data-route-path", "/upload");
   });
 

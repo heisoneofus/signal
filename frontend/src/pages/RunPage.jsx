@@ -1,5 +1,5 @@
 import React, { startTransition, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { listGoogleWorksheets, runGoogleSheetDataset, uploadDataset } from "../api";
 import { Icon } from "../components/Icons";
@@ -370,7 +370,9 @@ export function ProcessingPanel({ mode = "generate" }) {
 
 export function RunPage() {
   const navigate = useNavigate();
-  const [sourceType, setSourceType] = useState("file");
+  const [searchParams] = useSearchParams();
+  const initialSourceType = searchParams.get("source") === "google_sheets" ? "google_sheets" : "file";
+  const [sourceType, setSourceType] = useState(initialSourceType);
   const [file, setFile] = useState(null);
   const [contextText, setContextText] = useState("");
   const [busyAction, setBusyAction] = useState("");

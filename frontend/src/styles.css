@@ -2019,6 +2019,16 @@ code {
     padding-inline: 14px;
   }
 
+  .landing-page {
+    align-items: start;
+    min-height: 100dvh;
+    padding-block: 26px 22px;
+  }
+
+  .landing-hero {
+    gap: 20px;
+  }
+
   .topbar {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 10px 12px;
@@ -2062,7 +2072,16 @@ code {
   }
 
   .landing-hero h1 {
-    font-size: clamp(2.55rem, 16vw, 4rem);
+    max-width: 22rem;
+    gap: 6px;
+    font-size: clamp(2.35rem, 10.5vw, 2.85rem);
+    line-height: 1;
+  }
+
+  .landing-copy {
+    max-width: 35rem;
+    font-size: 1rem;
+    line-height: 1.55;
   }
 
   .landing-actions,
@@ -2085,6 +2104,8 @@ code {
 
   .terminal-strip {
     display: grid;
+    gap: 10px;
+    padding: 14px;
   }
 
   .metrics-grid,

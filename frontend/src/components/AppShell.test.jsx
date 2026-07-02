@@ -1,12 +1,17 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "./AppShell";
 
 const routerFuture = { v7_relativeSplatPath: true, v7_startTransition: true };
 
 describe("AppShell", () => {
+  afterEach(() => {
+    delete HTMLElement.prototype.scrollIntoView;
+    window.localStorage.clear();
+  });
+
   it("uses the Signal brand in the shell", () => {
     render(
       <MemoryRouter future={routerFuture} initialEntries={["/upload"]}>
@@ -52,5 +57,21 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: /sessions/i })).toHaveAttribute("href", "/sessions");
     expect(screen.getByRole("link", { name: /product updates/i })).toHaveAttribute("href", "/product-updates");
     expect(screen.queryByText(/ai review/i)).not.toBeInTheDocument();
+  });
+
+  it("scrolls the active workflow step into view on route load", () => {
+    const scrollIntoView = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+
+    render(
+      <MemoryRouter future={routerFuture} initialEntries={["/results/session_123"]}>
+        <AppShell>
+          <div>Content</div>
+        </AppShell>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("link", { name: /3\. dashboard/i })).toHaveClass("topnav__link--active");
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", inline: "center" });
   });
 });

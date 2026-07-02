@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 
 import { Icon } from "./Icons";
@@ -34,8 +34,16 @@ function navItemsForSession(sessionId) {
 
 export function AppShell({ children }) {
   const location = useLocation();
+  const navRef = useRef(null);
   const currentSessionId = currentSessionFromLocation(location.pathname);
   const navItems = navItemsForSession(currentSessionId);
+
+  useEffect(() => {
+    const activeLink = navRef.current?.querySelector(".topnav__link--active");
+    if (typeof activeLink?.scrollIntoView === "function") {
+      activeLink.scrollIntoView({ block: "nearest", inline: "center" });
+    }
+  }, [location.pathname, currentSessionId]);
 
   if (location.pathname === "/") {
     return children;
@@ -51,7 +59,7 @@ export function AppShell({ children }) {
           <span>Signal</span>
         </Link>
 
-        <nav className="topnav" aria-label="Primary navigation">
+        <nav className="topnav" aria-label="Primary navigation" ref={navRef}>
           {navItems.map((item) => (
             <NavLink
               key={item.label}

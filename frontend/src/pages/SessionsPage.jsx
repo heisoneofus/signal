@@ -18,6 +18,7 @@ export function SessionsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -50,6 +51,20 @@ export function SessionsPage() {
   const sortedItems = useMemo(() => {
     return [...items].sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime());
   }, [items]);
+
+  const filteredItems = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    if (!normalizedQuery) {
+      return sortedItems;
+    }
+    return sortedItems.filter((item) => {
+      const searchable = [item.title, item.session_id, item.status, formatCreatedAt(item.created_at)]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase();
+      return searchable.includes(normalizedQuery);
+    });
+  }, [query, sortedItems]);
 
   function startRename(item) {
     setEditingSessionId(item.session_id);
@@ -93,8 +108,35 @@ export function SessionsPage() {
       {error ? <p className="status status--error">{error}</p> : null}
       {!loading && !error && !sortedItems.length ? <p className="status">No sessions have been recorded yet.</p> : null}
 
+      {!loading && !error && sortedItems.length ? (
+        <div className="session-search" role="search">
+          <label htmlFor="session-search-input">
+            <span>Find a dashboard</span>
+            <input
+              id="session-search-input"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search by name, date, or session ID"
+              type="search"
+              value={query}
+            />
+          </label>
+          <p aria-live="polite">
+            {query.trim() ? `${filteredItems.length} of ${sortedItems.length} sessions` : `${sortedItems.length} saved sessions`}
+          </p>
+        </div>
+      ) : null}
+
+      {!loading && !error && sortedItems.length && !filteredItems.length ? (
+        <div className="session-search-empty">
+          <p>No dashboards match “{query.trim()}”.</p>
+          <button className="button button--ghost" onClick={() => setQuery("")} type="button">
+            Clear search
+          </button>
+        </div>
+      ) : null}
+
       <div className="session-list">
-        {sortedItems.map((item) => (
+        {filteredItems.map((item) => (
           <article className="session-card" key={item.session_id}>
             <div>
               <p className="session-card__status">{item.status}</p>

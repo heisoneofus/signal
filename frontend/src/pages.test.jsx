@@ -689,4 +689,42 @@ describe("frontend pages", () => {
     });
     expect(await screen.findByText(/revenue overview/i)).toBeInTheDocument();
   });
+
+  it("filters saved sessions by title, date, and session ID", async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        items: [
+          { session_id: "session_sales_123", title: "Sales Overview", status: "reviewed", created_at: "2026-05-28T08:00:00Z" },
+          { session_id: "session_support_456", title: "Support Health", status: "draft", created_at: "2026-06-02T08:00:00Z" },
+        ],
+      }),
+    });
+
+    render(
+      <MemoryRouter future={routerFuture} initialEntries={["/sessions"]}>
+        <Routes>
+          <Route path="/sessions" element={<SessionsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const search = await screen.findByRole("searchbox", { name: /find a dashboard/i });
+    expect(screen.getByText(/2 saved sessions/i)).toBeInTheDocument();
+
+    await userEvent.type(search, "support_456");
+    expect(screen.getByRole("heading", { name: /support health/i })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /sales overview/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/1 of 2 sessions/i)).toBeInTheDocument();
+
+    await userEvent.clear(search);
+    await userEvent.type(search, "may 28");
+    expect(screen.getByRole("heading", { name: /sales overview/i })).toBeInTheDocument();
+
+    await userEvent.clear(search);
+    await userEvent.type(search, "no such dashboard");
+    expect(screen.getByText(/no dashboards match/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /clear search/i }));
+    expect(screen.getByRole("heading", { name: /support health/i })).toBeInTheDocument();
+  });
 });

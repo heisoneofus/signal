@@ -192,7 +192,7 @@ code {
 
 .landing-gradient-wave {
   position: absolute;
-  inset: -22%;
+  inset: 0;
   z-index: -1;
   pointer-events: none;
   opacity: 0.86;
@@ -214,7 +214,8 @@ code {
     );
   background-size: 170% 170%, 150% 150%;
   filter: blur(16px) saturate(1.22);
-  transform: translate3d(-2%, -1%, 0) rotate(-3deg);
+  transform: translate3d(-2%, -1%, 0) rotate(-3deg) scale(1.44);
+  transform-origin: center;
   animation: landing-wave 18s ease-in-out infinite alternate;
 }
 

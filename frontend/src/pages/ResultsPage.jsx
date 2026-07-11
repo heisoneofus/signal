@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { fetchSession, patchSession, renderSessionFigures } from "../api";
 import { DataQualityPanel } from "../components/DataQualityPanel";
@@ -252,6 +252,8 @@ function InsightPanel({ payload, open, onOpenChange }) {
 
 export function ResultsPage() {
   const { sessionId = "" } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialSearchRef = useRef(searchParams.toString());
   const exportTargetRef = useRef(null);
   const [payload, setPayload] = useState(null);
   const [figures, setFigures] = useState([]);
@@ -260,6 +262,8 @@ export function ResultsPage() {
   const [qualityOpen, setQualityOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [presentationStatus, setPresentationStatus] = useState("");
+  const isPresentation = searchParams.get("present") === "1";
 
   useEffect(() => {
     let active = true;
@@ -270,8 +274,30 @@ export function ResultsPage() {
       try {
         const session = await fetchSession(sessionId);
         if (active) {
+          const initialParams = new URLSearchParams(initialSearchRef.current);
+          const filterOptions = session.dataset_profile?.filter_options || {};
+          const initialFilters = Object.fromEntries(
+            Object.entries(filterOptions).flatMap(([key, options]) => {
+              const values = (initialParams.get(key) || "")
+                .split(",")
+                .filter((value) => options.includes(value));
+              return values.length ? [[key, values]] : [];
+            }),
+          );
           setPayload(session);
+          setSelectedFilters(initialFilters);
           setFigures(session.figures || []);
+          if (Object.keys(initialFilters).length) {
+            try {
+              const filtered = await renderSessionFigures(sessionId, initialFilters);
+              if (!active) {
+                return;
+              }
+              setFigures(filtered.figures || []);
+            } catch (filterError) {
+              setError(filterError.message || "Unable to apply the saved dashboard filters.");
+            }
+          }
           rememberSession(sessionId);
         }
       } catch (loadError) {
@@ -293,6 +319,23 @@ export function ResultsPage() {
       active = false;
     };
   }, [sessionId]);
+
+  useEffect(() => {
+    if (!isPresentation) {
+      return undefined;
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete("present");
+        setSearchParams(nextParams, { replace: true });
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isPresentation, searchParams, setSearchParams]);
 
   const cards = useMemo(() => {
     const metrics = payload?.analysis?.metrics || {};
@@ -320,8 +363,38 @@ export function ResultsPage() {
     const activeFilters = Object.fromEntries(
       Object.entries(nextFilters).filter(([, values]) => values?.length),
     );
+    const nextParams = new URLSearchParams(searchParams);
+    Object.keys(payload?.dataset_profile?.filter_options || {}).forEach((key) => nextParams.delete(key));
+    Object.entries(activeFilters).forEach(([key, values]) => nextParams.set(key, values.join(",")));
+    setSearchParams(nextParams, { replace: true });
     const response = await renderSessionFigures(sessionId, activeFilters);
     setFigures(response.figures || []);
+  }
+
+  function setPresentation(enabled) {
+    const nextParams = new URLSearchParams(searchParams);
+    if (enabled) {
+      nextParams.set("present", "1");
+    } else {
+      nextParams.delete("present");
+    }
+    setPresentationStatus("");
+    setSearchParams(nextParams, { replace: true });
+  }
+
+  async function copyPresentationUrl() {
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Clipboard API unavailable");
+      }
+      const presentationParams = new URLSearchParams(searchParams);
+      presentationParams.set("present", "1");
+      const url = `${window.location.origin}/results/${sessionId}?${presentationParams.toString()}`;
+      await navigator.clipboard.writeText(url);
+      setPresentationStatus("Presentation link copied");
+    } catch {
+      setPresentationStatus("Presentation link copy unavailable");
+    }
   }
 
   async function persistVisualOrder(nextVisuals, nextFigures) {
@@ -399,7 +472,7 @@ export function ResultsPage() {
   const dashboardTitle = payload.dashboard_spec?.title || "Signal Dashboard";
 
   return (
-    <section className="dashboard-page" ref={exportTargetRef}>
+    <section className={`dashboard-page${isPresentation ? " dashboard-page--presentation" : ""}`} ref={exportTargetRef}>
       <div className="dashboard-toolbar">
         <div>
           <h1>{dashboardTitle}</h1>
@@ -407,11 +480,30 @@ export function ResultsPage() {
           {error ? <p className="status status--error">{error}</p> : null}
         </div>
         <div className="dashboard-actions">
-          <ExportMenu sessionId={payload.session_id} selectedFilters={selectedFilters} targetRef={exportTargetRef} />
-          <Link className="button button--primary" to={`/update/${payload.session_id}`}>
-            <Icon name="review" size={16} />
-            Update
-          </Link>
+          {isPresentation ? (
+            <>
+              <button className="button button--secondary" type="button" onClick={copyPresentationUrl}>
+                <Icon name="present" size={16} />
+                Copy view link
+              </button>
+              <button className="button button--primary" type="button" onClick={() => setPresentation(false)}>
+                Exit presentation
+              </button>
+              {presentationStatus ? <span className="presentation-status" aria-live="polite">{presentationStatus}</span> : null}
+            </>
+          ) : (
+            <>
+              <button className="button button--secondary" type="button" onClick={() => setPresentation(true)}>
+                <Icon name="present" size={16} />
+                Present
+              </button>
+              <ExportMenu sessionId={payload.session_id} selectedFilters={selectedFilters} targetRef={exportTargetRef} />
+              <Link className="button button--primary" to={`/update/${payload.session_id}`}>
+                <Icon name="review" size={16} />
+                Update
+              </Link>
+            </>
+          )}
         </div>
       </div>
 
@@ -423,8 +515,8 @@ export function ResultsPage() {
         ))}
       </div>
 
-      <div className={`dashboard-content dashboard-content--inspector${qualityOpen ? " dashboard-content--with-insights" : ""}`}>
-        <InsightPanel payload={payload} open={qualityOpen} onOpenChange={setQualityOpen} />
+      <div className={`dashboard-content${isPresentation ? " dashboard-content--presentation" : ` dashboard-content--inspector${qualityOpen ? " dashboard-content--with-insights" : ""}`}`}>
+        {isPresentation ? null : <InsightPanel payload={payload} open={qualityOpen} onOpenChange={setQualityOpen} />}
 
         <div className="chart-layout">
           {figures.length ? (
@@ -443,7 +535,7 @@ export function ResultsPage() {
                       <h2>{title}</h2>
                       <p>{humanizeName(visual.chart_type || "Plotly")} - Cleaned and rendered</p>
                     </div>
-                    <div className="chart-heading__actions">
+                    {isPresentation ? null : <div className="chart-heading__actions">
                       <button
                         aria-label={`Drag to reorder ${title}`}
                         className="icon-button icon-button--drag"
@@ -475,7 +567,7 @@ export function ResultsPage() {
                       >
                         <Icon name="arrow" size={16} />
                       </button>
-                    </div>
+                    </div>}
                   </div>
                   <PlotlyChart figure={figure} title={title} />
                 </article>

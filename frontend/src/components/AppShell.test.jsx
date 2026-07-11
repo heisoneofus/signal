@@ -74,4 +74,18 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: /3\. dashboard/i })).toHaveClass("topnav__link--active");
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", inline: "center" });
   });
+
+  it("removes application chrome for presentation links", () => {
+    const { container } = render(
+      <MemoryRouter future={routerFuture} initialEntries={["/results/session_123?present=1"]}>
+        <AppShell>
+          <div>Presentation content</div>
+        </AppShell>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Presentation content")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: /primary navigation/i })).not.toBeInTheDocument();
+    expect(container.querySelector(".app-shell")).toHaveClass("app-shell--presentation");
+  });
 });

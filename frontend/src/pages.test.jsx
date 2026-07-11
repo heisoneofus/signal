@@ -644,6 +644,21 @@ describe("frontend pages", () => {
         expect.objectContaining({ method: "PATCH" }),
       );
     });
+
+    await userEvent.click(screen.getByRole("button", { name: /^present$/i }));
+    expect(container.querySelector(".dashboard-page")).toHaveClass("dashboard-page--presentation");
+    expect(screen.queryByRole("button", { name: /drag to reorder/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/ai reasoning/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /copy view link/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /copy view link/i }));
+    expect(navigator.clipboard.writeText).toHaveBeenLastCalledWith(expect.stringContaining("present=1"));
+    expect(navigator.clipboard.writeText).toHaveBeenLastCalledWith(expect.stringContaining("region=EU"));
+    expect(await screen.findByText(/presentation link copied/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /exit presentation/i }));
+    expect(screen.getByRole("button", { name: /^present$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /drag to reorder profit by region/i })).toBeInTheDocument();
   });
 
   it("renames dashboards from the sessions list", async () => {

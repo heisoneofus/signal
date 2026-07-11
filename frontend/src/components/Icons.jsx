@@ -110,6 +110,14 @@ const PATHS = {
       <path d="M5 21h14" />
     </>
   ),
+  present: (
+    <>
+      <rect x="3" y="4" width="18" height="13" rx="2" />
+      <path d="M8 21h8" />
+      <path d="M12 17v4" />
+      <path d="m10 8 5 3-5 3z" />
+    </>
+  ),
   arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
   check: (
     <>

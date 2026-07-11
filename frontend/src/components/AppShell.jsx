@@ -49,6 +49,17 @@ export function AppShell({ children }) {
     return children;
   }
 
+  const isPresentation = location.pathname.startsWith("/results/")
+    && new URLSearchParams(location.search).get("present") === "1";
+
+  if (isPresentation) {
+    return (
+      <div className="app-shell app-shell--presentation">
+        <main className="app-main">{children}</main>
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">

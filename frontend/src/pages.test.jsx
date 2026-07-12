@@ -352,6 +352,70 @@ describe("frontend pages", () => {
     expect(navigateMock).toHaveBeenCalledWith("/results/session_123");
   });
 
+  it("applies one dashboard-level direction from the review canvas", async () => {
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ items: [{ session_id: "session_123", title: "Sales Overview", status: "reviewed" }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          session_id: "session_123",
+          status: "reviewed",
+          dataset_profile: { row_count: 1, column_count: 2, quality_score: 100 },
+          dashboard_spec: {
+            title: "Sales Overview",
+            layout: "grid",
+            theme: "light",
+            visuals: [{ id: "visual_1", chart_type: "bar", title: "Sales by Region" }],
+            filters: [],
+          },
+          figures: [{ data: [{ x: ["EU"], y: [10] }], layout: {} }],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          session_id: "session_123",
+          session_status: "reviewed",
+          dashboard_spec: {
+            title: "Sales Overview",
+            layout: "tabs",
+            theme: "light",
+            visuals: [{ id: "visual_1", chart_type: "bar", title: "Sales by Region" }],
+            filters: [],
+          },
+          figures: [{ data: [{ x: ["EU"], y: [10] }], layout: {} }],
+        }),
+      });
+
+    render(
+      <MemoryRouter future={routerFuture} initialEntries={["/update/session_123"]}>
+        <Routes>
+          <Route path="/update/:sessionId" element={<UpdatePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: /tune the whole canvas/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /use tabs layout/i }));
+    expect(screen.getByLabelText(/^instruction$/i)).toHaveValue("Use tabs layout");
+    await userEvent.click(screen.getByRole("button", { name: /apply to dashboard/i }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/update"),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ session_id: "session_123", prompt: "Use tabs layout" }),
+        }),
+      );
+    });
+    expect(await screen.findByRole("status")).toHaveTextContent(/applied: use tabs layout/i);
+    expect(screen.getByRole("button", { name: /use sections layout/i })).toBeInTheDocument();
+  });
+
   it("prevents final generation while a chart update is still applying", async () => {
     let resolveUpdate;
     const updatePromise = new Promise((resolve) => {

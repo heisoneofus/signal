@@ -95,6 +95,8 @@ export function UpdatePage() {
   const [loading, setLoading] = useState(Boolean(routeSessionId));
   const [submitting, setSubmitting] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [dashboardPrompt, setDashboardPrompt] = useState("");
+  const [appliedDashboardPrompt, setAppliedDashboardPrompt] = useState("");
   const [error, setError] = useState("");
   const [payload, setPayload] = useState(null);
 
@@ -194,10 +196,25 @@ export function UpdatePage() {
         ...updated,
         status: updated.session_status,
       }));
+      return true;
     } catch (submissionError) {
       setError(submissionError.message || "Unable to apply the dashboard update.");
+      return false;
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleDashboardUpdate(event) {
+    event.preventDefault();
+    const prompt = dashboardPrompt.trim();
+    if (!prompt) {
+      return;
+    }
+    const applied = await applyChartUpdate(prompt);
+    if (applied) {
+      setAppliedDashboardPrompt(prompt);
+      setDashboardPrompt("");
     }
   }
 
@@ -242,6 +259,12 @@ export function UpdatePage() {
     : visuals.length
       ? "Approve the lead chart, then tune supporting views"
       : "Load a session to begin";
+  const currentLayout = payload?.dashboard_spec?.layout || "grid";
+  const currentTheme = payload?.dashboard_spec?.theme || "light";
+  const dashboardSuggestions = [
+    currentLayout === "tabs" ? "Use sections layout" : "Use tabs layout",
+    currentTheme === "dark" ? "Switch to light theme" : "Switch to dark theme",
+  ];
 
   return (
     <section className="review-page review-page--wide">
@@ -295,6 +318,52 @@ export function UpdatePage() {
             <strong>{loading ? "Loading draft" : payload?.dashboard_spec?.layout ? humanizeName(payload.dashboard_spec.layout) : "Dashboard draft"}</strong>
           </div>
         </div>
+
+        <section className="dashboard-directive" aria-labelledby="dashboard-directive-title">
+          <div className="dashboard-directive__intro">
+            <span className="dashboard-directive__icon">
+              <Icon name="spark" size={18} />
+            </span>
+            <div>
+              <span className="dashboard-directive__eyebrow">Dashboard direction</span>
+              <h2 id="dashboard-directive-title">Tune the whole canvas</h2>
+              <p>Change the layout or theme once, then refine individual charts below.</p>
+            </div>
+          </div>
+          <form className="dashboard-directive__form" onSubmit={handleDashboardUpdate}>
+            <label htmlFor="dashboard-direction-prompt">Instruction</label>
+            <div className="dashboard-directive__composer">
+              <input
+                disabled={!draftReady || loading || submitting}
+                id="dashboard-direction-prompt"
+                onChange={(event) => setDashboardPrompt(event.target.value)}
+                placeholder='e.g., "Use tabs layout" or "Switch to dark theme"'
+                value={dashboardPrompt}
+              />
+              <button className="button button--primary" disabled={!draftReady || loading || submitting || !dashboardPrompt.trim()} type="submit">
+                {submitting ? "Applying..." : "Apply to dashboard"}
+              </button>
+            </div>
+            <div className="dashboard-directive__suggestions" aria-label="Dashboard direction examples">
+              <span>Try</span>
+              {dashboardSuggestions.map((suggestion) => (
+                <button
+                  disabled={!draftReady || loading || submitting}
+                  key={suggestion}
+                  onClick={() => setDashboardPrompt(suggestion)}
+                  type="button"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+            {appliedDashboardPrompt ? (
+              <p className="dashboard-directive__status" role="status">
+                <Icon name="check" size={15} /> Applied: {appliedDashboardPrompt}
+              </p>
+            ) : null}
+          </form>
+        </section>
 
         <div className="plan-card-list plan-card-list--canvas">
           {primaryVisual ? (

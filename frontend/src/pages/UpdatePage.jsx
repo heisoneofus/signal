@@ -21,6 +21,19 @@ function formatConfidence(value) {
   return `${Math.round(numeric * 100)}% confidence`;
 }
 
+function confidenceScore(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const numeric = Number(value);
+  return Number.isNaN(numeric) ? null : numeric;
+}
+
+function needsReview(visual) {
+  const score = confidenceScore(visual?.confidence);
+  return score === null || score < 0.7;
+}
+
 function rememberSession(sessionId) {
   try {
     window.localStorage.setItem("signal.currentSessionId", sessionId);
@@ -54,7 +67,10 @@ function VisualReviewCard({ visual, figure, index, onUpdate, updating, priority 
             {humanizeName(visual.chart_type || "Chart")} - {formatConfidence(visual.confidence)}
           </p>
         </div>
-        <code className="ready-chip">{humanizeName(visual.status || "Ready")}</code>
+        <div className="plan-card__signals">
+          {needsReview(visual) ? <span className="review-signal">Needs review</span> : null}
+          <code className="ready-chip">{humanizeName(visual.status || "Ready")}</code>
+        </div>
       </div>
       {priority === "primary" ? (
         <div className="decision-strip">
@@ -97,6 +113,7 @@ export function UpdatePage() {
   const [finalizing, setFinalizing] = useState(false);
   const [dashboardPrompt, setDashboardPrompt] = useState("");
   const [appliedDashboardPrompt, setAppliedDashboardPrompt] = useState("");
+  const [reviewFocus, setReviewFocus] = useState("all");
   const [error, setError] = useState("");
   const [payload, setPayload] = useState(null);
 
@@ -238,8 +255,16 @@ export function UpdatePage() {
 
   const visuals = payload?.dashboard_spec?.visuals || [];
   const figures = payload?.figures || [];
-  const primaryVisual = visuals[0];
-  const secondaryVisuals = visuals.slice(1);
+  const visualEntries = visuals.map((visual, index) => ({ figure: figures[index], index, visual }));
+  const attentionEntries = visualEntries
+    .filter(({ visual }) => needsReview(visual))
+    .sort((left, right) => {
+      const leftScore = confidenceScore(left.visual.confidence) ?? -1;
+      const rightScore = confidenceScore(right.visual.confidence) ?? -1;
+      return leftScore - rightScore;
+    });
+  const visibleEntries = reviewFocus === "attention" ? attentionEntries : visualEntries;
+  const attentionCount = attentionEntries.length;
   const draftReady = Boolean(payload);
   const generateDisabled = !sessionId || loading || submitting || finalizing || !draftReady;
   const generateButtonLabel = loading
@@ -256,7 +281,9 @@ export function UpdatePage() {
       : "No proposed visuals";
   const nextDecisionLabel = loading
     ? "Wait for draft details"
-    : visuals.length
+    : reviewFocus === "attention" && attentionCount
+      ? `Inspect ${attentionCount} uncertain visual${attentionCount === 1 ? "" : "s"}`
+      : visuals.length
       ? "Approve the lead chart, then tune supporting views"
       : "Load a session to begin";
   const currentLayout = payload?.dashboard_spec?.layout || "grid";
@@ -319,6 +346,38 @@ export function UpdatePage() {
           </div>
         </div>
 
+        <section className="review-priority" aria-labelledby="review-priority-title">
+          <div className="review-priority__intro">
+            <span className="review-priority__marker" aria-hidden="true">
+              <Icon name="signal" size={18} />
+            </span>
+            <div>
+              <span className="review-priority__eyebrow">Review priority</span>
+              <h2 id="review-priority-title">Start with uncertainty</h2>
+              <p>Surface pending and sub-70% confidence visuals before you publish.</p>
+            </div>
+          </div>
+          <div className="review-priority__controls">
+            <div className="review-priority__count" aria-live="polite">
+              <strong>{loading ? "—" : attentionCount}</strong>
+              <span>{loading ? "checking confidence" : `of ${visuals.length} need attention`}</span>
+            </div>
+            <div className="review-priority__switch" aria-label="Review focus">
+              <button aria-pressed={reviewFocus === "all"} disabled={!draftReady || loading} onClick={() => setReviewFocus("all")} type="button">
+                All visuals
+              </button>
+              <button
+                aria-pressed={reviewFocus === "attention"}
+                disabled={!draftReady || loading || !attentionCount}
+                onClick={() => setReviewFocus("attention")}
+                type="button"
+              >
+                Needs attention {attentionCount ? `(${attentionCount})` : ""}
+              </button>
+            </div>
+          </div>
+        </section>
+
         <section className="dashboard-directive" aria-labelledby="dashboard-directive-title">
           <div className="dashboard-directive__intro">
             <span className="dashboard-directive__icon">
@@ -365,37 +424,27 @@ export function UpdatePage() {
           </form>
         </section>
 
-        <div className="plan-card-list plan-card-list--canvas">
-          {primaryVisual ? (
-            <>
+        <div className={`plan-card-list plan-card-list--canvas${reviewFocus === "attention" ? " plan-card-list--attention" : ""}`}>
+          {visibleEntries.length ? (
+            visibleEntries.map(({ figure, index, visual }) => (
               <VisualReviewCard
-                visual={primaryVisual}
-                figure={figures[0]}
-                index={0}
-                key={primaryVisual.id || `${primaryVisual.title || "visual"}-0`}
+                visual={visual}
+                figure={figure}
+                index={index}
+                key={visual.id || `${visual.title || "visual"}-${index}`}
                 onUpdate={applyChartUpdate}
-                priority="primary"
+                priority={reviewFocus === "all" && index === 0 ? "primary" : "secondary"}
                 updating={submitting}
               />
-              {secondaryVisuals.map((visual, offset) => {
-                const index = offset + 1;
-                return (
-                  <VisualReviewCard
-                    visual={visual}
-                    figure={figures[index]}
-                    index={index}
-                    key={visual.id || `${visual.title || "visual"}-${index}`}
-                    onUpdate={applyChartUpdate}
-                    priority="secondary"
-                    updating={submitting}
-                  />
-                );
-              })}
-            </>
+            ))
           ) : (
             <article className="plan-card">
               <div className="empty-state">
-                {loading ? "Loading the active visualization plan..." : "Load a session to review the active visualization plan."}
+                {loading
+                  ? "Loading the active visualization plan..."
+                  : reviewFocus === "attention"
+                    ? "Every visual meets the confidence threshold. Review the full dashboard when you are ready."
+                    : "Load a session to review the active visualization plan."}
               </div>
             </article>
           )}

@@ -1320,6 +1320,27 @@ code {
   padding: 6px 8px;
 }
 
+.plan-card__signals {
+  display: grid;
+  justify-items: end;
+  gap: 7px;
+}
+
+.review-signal {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 5px 8px;
+  border: 1px solid rgba(248, 193, 74, 0.38);
+  border-radius: 999px;
+  color: #fbd77e;
+  background: rgba(248, 193, 74, 0.09);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 .visual-placeholder {
   min-height: 160px;
   display: grid;
@@ -1798,6 +1819,142 @@ code {
   margin-top: 5px;
   color: var(--text);
   line-height: 1.35;
+}
+
+.review-priority {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  overflow: hidden;
+  padding: 16px 18px;
+  border: 1px solid rgba(248, 193, 74, 0.32);
+  border-radius: 10px;
+  background:
+    linear-gradient(90deg, rgba(248, 193, 74, 0.1), transparent 48%),
+    repeating-linear-gradient(90deg, transparent 0 34px, rgba(248, 193, 74, 0.025) 34px 35px),
+    #0a1120;
+}
+
+.review-priority::after {
+  position: absolute;
+  top: 0;
+  right: 18px;
+  width: 72px;
+  height: 2px;
+  background: var(--warning);
+  box-shadow: 0 0 18px rgba(248, 193, 74, 0.58);
+  content: "";
+}
+
+.review-priority__intro {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.review-priority__marker {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(248, 193, 74, 0.38);
+  border-radius: 50%;
+  color: var(--warning);
+  background: rgba(248, 193, 74, 0.08);
+}
+
+.review-priority__eyebrow {
+  color: #fbd77e;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.review-priority h2 {
+  margin: 3px 0 4px;
+  font-size: 1.05rem;
+}
+
+.review-priority p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.review-priority__controls {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
+.review-priority__count {
+  min-width: 92px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-priority__count strong {
+  color: var(--warning);
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.review-priority__count span {
+  max-width: 80px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.review-priority__switch {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #060c18;
+}
+
+.review-priority__switch button {
+  min-height: 36px;
+  padding: 8px 11px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.76rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.review-priority__switch button[aria-pressed="true"] {
+  color: #fff3c4;
+  background: rgba(248, 193, 74, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(248, 193, 74, 0.28);
+}
+
+.review-priority__switch button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.plan-card-list--attention .plan-card--chart {
+  border-color: rgba(248, 193, 74, 0.24);
 }
 
 .dashboard-directive {
@@ -2405,6 +2562,15 @@ code {
     grid-template-columns: 1fr;
   }
 
+  .review-priority {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .review-priority__controls {
+    justify-content: space-between;
+  }
+
   .dashboard-directive {
     padding: 15px;
   }
@@ -2446,6 +2612,20 @@ code {
 
   .plan-card__title,
   .inline-field {
+    grid-template-columns: 1fr;
+  }
+
+  .plan-card__signals {
+    justify-items: start;
+  }
+
+  .review-priority__controls {
+    display: grid;
+    justify-content: stretch;
+  }
+
+  .review-priority__switch {
+    display: grid;
     grid-template-columns: 1fr;
   }
 

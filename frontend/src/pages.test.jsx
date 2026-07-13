@@ -416,6 +416,57 @@ describe("frontend pages", () => {
     expect(screen.getByRole("button", { name: /use sections layout/i })).toBeInTheDocument();
   });
 
+  it("surfaces low-confidence visuals as a focused review queue", async () => {
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ items: [{ session_id: "session_123", title: "Sales Overview", status: "reviewed" }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          session_id: "session_123",
+          status: "reviewed",
+          dataset_profile: { row_count: 12, column_count: 4, quality_score: 82 },
+          dashboard_spec: {
+            title: "Sales Overview",
+            visuals: [
+              { id: "visual_1", chart_type: "line", title: "Reliable trend", confidence: 0.82 },
+              { id: "visual_2", chart_type: "scatter", title: "Uncertain tradeoff", confidence: 0.55 },
+              { id: "visual_3", chart_type: "bar", title: "Regional mix", confidence: 0.68 },
+            ],
+            filters: [],
+          },
+          figures: [
+            { data: [{}], layout: {} },
+            { data: [{}, {}], layout: {} },
+            { data: [{}, {}, {}], layout: {} },
+          ],
+        }),
+      });
+
+    render(
+      <MemoryRouter future={routerFuture} initialEntries={["/update/session_123"]}>
+        <Routes>
+          <Route path="/update/:sessionId" element={<UpdatePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: /start with uncertainty/i })).toBeInTheDocument();
+    expect(screen.getByText(/of 3 need attention/i)).toBeInTheDocument();
+    expect(screen.getAllByTestId("plotly-chart").map((chart) => chart.textContent)).toEqual(["1", "2", "3"]);
+
+    await userEvent.click(screen.getByRole("button", { name: /needs attention \(2\)/i }));
+
+    expect(screen.queryByRole("heading", { name: /reliable trend/i })).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("plotly-chart").map((chart) => chart.textContent)).toEqual(["2", "3"]);
+    expect(screen.getByText(/inspect 2 uncertain visuals/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /all visuals/i }));
+    expect(screen.getByRole("heading", { name: /reliable trend/i })).toBeInTheDocument();
+  });
+
   it("prevents final generation while a chart update is still applying", async () => {
     let resolveUpdate;
     const updatePromise = new Promise((resolve) => {

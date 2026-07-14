@@ -218,3 +218,9 @@ export async function updateDashboard(sessionId, prompt) {
     body: JSON.stringify({ session_id: sessionId, prompt }),
   });
 }
+
+export async function undoDashboardUpdate(sessionId) {
+  return apiFetch(`/sessions/${sessionId}/undo`, {
+    method: "POST",
+  });
+}

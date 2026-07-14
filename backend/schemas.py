@@ -75,6 +75,7 @@ class UpdateResponse(BaseModel):
     dashboard_spec: dict[str, Any]
     figures: list[dict[str, Any]] = Field(default_factory=list)
     session_status: str
+    revision_count: int = 1
     artifacts: list[ArtifactDescriptor] = Field(default_factory=list)
 
 
@@ -98,6 +99,7 @@ class SessionsListResponse(BaseModel):
 class SessionDetailResponse(BaseModel):
     session_id: str
     status: str
+    revision_count: int = 1
     analysis: dict[str, Any] | None = None
     dashboard_spec: dict[str, Any]
     figures: list[dict[str, Any]] = Field(default_factory=list)

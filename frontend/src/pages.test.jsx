@@ -416,6 +416,91 @@ describe("frontend pages", () => {
     expect(screen.getByRole("button", { name: /use sections layout/i })).toBeInTheDocument();
   });
 
+  it("restores the previous dashboard revision after an AI refinement", async () => {
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ items: [{ session_id: "session_123", title: "Sales Overview", status: "reviewed" }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          session_id: "session_123",
+          status: "reviewed",
+          revision_count: 1,
+          dataset_profile: { row_count: 2, column_count: 2, quality_score: 100 },
+          dashboard_spec: {
+            title: "Sales Overview",
+            layout: "grid",
+            theme: "light",
+            visuals: [{ id: "visual_1", chart_type: "bar", title: "Sales by Region" }],
+            filters: [],
+          },
+          figures: [{ data: [{ x: ["EU", "US"], y: [10, 20] }], layout: {} }],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          session_id: "session_123",
+          session_status: "reviewed",
+          revision_count: 2,
+          dashboard_spec: {
+            title: "Sales Overview",
+            layout: "grid",
+            theme: "dark",
+            visuals: [{ id: "visual_1", chart_type: "bar", title: "Sales by Region" }],
+            filters: [],
+          },
+          figures: [{ data: [{ x: ["EU", "US"], y: [10, 20] }], layout: {} }],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          session_id: "session_123",
+          session_status: "reviewed",
+          revision_count: 1,
+          dashboard_spec: {
+            title: "Sales Overview",
+            layout: "grid",
+            theme: "light",
+            visuals: [{ id: "visual_1", chart_type: "bar", title: "Sales by Region" }],
+            filters: [],
+          },
+          figures: [{ data: [{ x: ["EU", "US"], y: [10, 20] }], layout: {} }],
+        }),
+      });
+
+    render(
+      <MemoryRouter future={routerFuture} initialEntries={["/update/session_123"]}>
+        <Routes>
+          <Route path="/update/:sessionId" element={<UpdatePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: /safe to experiment/i })).toBeInTheDocument();
+    expect(screen.getByText(/revision 1/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /no ai changes to undo/i })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", { name: /switch to dark theme/i }));
+    await userEvent.click(screen.getByRole("button", { name: /apply to dashboard/i }));
+
+    expect(await screen.findByText(/saved as revision 2/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /undo last ai change/i }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/sessions/session_123/undo"),
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    expect(await screen.findByText(/restored revision 1/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /switch to dark theme/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /no ai changes to undo/i })).toBeDisabled();
+  });
+
   it("surfaces low-confidence visuals as a focused review queue", async () => {
     global.fetch
       .mockResolvedValueOnce({

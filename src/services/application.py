@@ -44,6 +44,7 @@ class SessionSummary:
 class SessionDetail:
     session_id: str
     status: str
+    revision_count: int
     analysis: dict[str, Any] | None
     dashboard_spec: dict[str, Any]
     figures: list[dict[str, Any]]
@@ -67,6 +68,7 @@ class UpdateResult:
     dashboard_spec: DashboardSpec
     figures: list[dict[str, Any]]
     session_status: str
+    revision_count: int
     artifacts: list[dict[str, str]]
 
 
@@ -735,7 +737,42 @@ class ApplicationService:
             dashboard_spec=cli_result.session_state.active_spec,
             figures=cli_result.figures,
             session_status=cli_result.session_state.status,
+            revision_count=len(cli_result.session_state.spec_versions),
             artifacts=self.list_artifacts(session_id, state=cli_result.session_state),
+        )
+
+    def undo_session_update(self, *, session_id: str) -> UpdateResult:
+        self._hydrate_remote_session(session_id)
+        state = self._load_state(session_id)
+        if state is None:
+            raise FileNotFoundError(session_id)
+        if len(state.spec_versions) < 2:
+            raise ValueError("No previous dashboard revision is available.")
+
+        state.spec_versions.pop()
+        state.active_spec = state.spec_versions[-1].model_copy(deep=True)
+        state.pending_patch = None
+        if state.plan is not None:
+            state.plan.design = state.active_spec.model_copy(deep=True)
+        state.updated_at = _utc_now()
+        state.decisions.append("Reverted the latest dashboard refinement from the review page.")
+
+        df = self._load_dataframe_for_state(state)
+        figures = self._render_figures(df, state)
+        session_logger = SessionLogger(path=artifacts.log_path(self.config, session_id))
+        session_logger.log_json(
+            "Dashboard Revision Restored",
+            {"revision_count": len(state.spec_versions)},
+        )
+        self._persist_session_artifacts(session_logger, state, figures=figures)
+
+        return UpdateResult(
+            session_id=session_id,
+            dashboard_spec=state.active_spec,
+            figures=figures,
+            session_status=state.status,
+            revision_count=len(state.spec_versions),
+            artifacts=self.list_artifacts(session_id, state=state),
         )
 
     def patch_session(
@@ -861,6 +898,11 @@ class ApplicationService:
         session_id = session_log.stem
 
         session_logger.section("Phase 3: Update Mode")
+        current_spec = session_state.active_spec.model_copy(deep=True)
+        if session_state.spec_versions:
+            session_state.spec_versions[-1] = current_spec
+        else:
+            session_state.spec_versions.append(current_spec)
         patch = parse_update_prompt(prompt, session_state.active_spec.model_copy(deep=True))
         updated_spec = apply_dashboard_patch(session_state.active_spec.model_copy(deep=True), patch)
         session_state.active_spec = updated_spec
@@ -955,6 +997,7 @@ class ApplicationService:
         return SessionDetail(
             session_id=session_id,
             status=state.status if state else "unknown",
+            revision_count=len(state.spec_versions) if state else 0,
             analysis=state.analysis.model_dump() if state and state.analysis else None,
             dashboard_spec=detail_spec,
             figures=figures,

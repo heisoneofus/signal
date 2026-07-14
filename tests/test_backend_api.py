@@ -149,6 +149,45 @@ def test_generate_and_update_endpoints_return_plotly_json(tmp_path: Path) -> Non
     assert len(serialized_figures) == len(updated["figures"])
 
 
+def test_latest_dashboard_refinement_can_be_undone(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+
+    generate = client.post(
+        "/generate",
+        files={"dataset": ("sales.csv", io.BytesIO(b"region,sales\nEU,10\nUS,20\n"), "text/csv")},
+        data={"context_text": "Show sales by region."},
+    )
+
+    assert generate.status_code == 200
+    generated = generate.json()
+    session_id = generated["session_id"]
+    original_spec = generated["dashboard_spec"]
+    assert client.get(f"/sessions/{session_id}").json()["revision_count"] == 1
+
+    update = client.post(
+        "/update",
+        json={"session_id": session_id, "prompt": "Switch to dark theme"},
+    )
+
+    assert update.status_code == 200
+    updated = update.json()
+    assert updated["revision_count"] == 2
+    assert updated["dashboard_spec"]["theme"] == "dark"
+
+    undo = client.post(f"/sessions/{session_id}/undo")
+
+    assert undo.status_code == 200
+    restored = undo.json()
+    assert restored["revision_count"] == 1
+    assert restored["dashboard_spec"] == original_spec
+    assert restored["figures"]
+    assert client.get(f"/sessions/{session_id}").json()["dashboard_spec"] == original_spec
+
+    unavailable = client.post(f"/sessions/{session_id}/undo")
+    assert unavailable.status_code == 409
+    assert unavailable.json()["code"] == "revision_not_available"
+
+
 def test_session_detail_includes_dataset_profile_and_filter_options(tmp_path: Path) -> None:
     client = _client(tmp_path)
 

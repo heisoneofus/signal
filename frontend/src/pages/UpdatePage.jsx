@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { fetchSession, fetchSessions, finalizeSession, renderSessionFigures, updateDashboard } from "../api";
+import { fetchSession, fetchSessions, finalizeSession, renderSessionFigures, undoDashboardUpdate, updateDashboard } from "../api";
 import { DataQualityPanel } from "../components/DataQualityPanel";
 import { Icon } from "../components/Icons";
 import { PlotlyChart } from "../components/PlotlyChart";
@@ -111,8 +111,10 @@ export function UpdatePage() {
   const [loading, setLoading] = useState(Boolean(routeSessionId));
   const [submitting, setSubmitting] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [undoing, setUndoing] = useState(false);
   const [dashboardPrompt, setDashboardPrompt] = useState("");
   const [appliedDashboardPrompt, setAppliedDashboardPrompt] = useState("");
+  const [revisionNotice, setRevisionNotice] = useState("");
   const [reviewFocus, setReviewFocus] = useState("all");
   const [error, setError] = useState("");
   const [payload, setPayload] = useState(null);
@@ -152,6 +154,7 @@ export function UpdatePage() {
 
       setLoading(true);
       setError("");
+      setRevisionNotice("");
       try {
         const detail = await fetchSession(targetSessionId);
         if (active) {
@@ -213,6 +216,7 @@ export function UpdatePage() {
         ...updated,
         status: updated.session_status,
       }));
+      setRevisionNotice(`Saved as revision ${updated.revision_count || 1}. You can safely undo this AI change.`);
       return true;
     } catch (submissionError) {
       setError(submissionError.message || "Unable to apply the dashboard update.");
@@ -253,6 +257,29 @@ export function UpdatePage() {
     }
   }
 
+  async function handleUndoDashboardUpdate() {
+    if (!sessionId) {
+      return;
+    }
+    setUndoing(true);
+    setError("");
+    setRevisionNotice("");
+    try {
+      const restored = await undoDashboardUpdate(sessionId);
+      setPayload((current) => ({
+        ...(current || {}),
+        ...restored,
+        status: restored.session_status,
+      }));
+      setAppliedDashboardPrompt("");
+      setRevisionNotice(`Restored revision ${restored.revision_count || 1}. The latest AI change was removed.`);
+    } catch (undoError) {
+      setError(undoError.message || "Unable to restore the previous dashboard revision.");
+    } finally {
+      setUndoing(false);
+    }
+  }
+
   const visuals = payload?.dashboard_spec?.visuals || [];
   const figures = payload?.figures || [];
   const visualEntries = visuals.map((visual, index) => ({ figure: figures[index], index, visual }));
@@ -266,14 +293,18 @@ export function UpdatePage() {
   const visibleEntries = reviewFocus === "attention" ? attentionEntries : visualEntries;
   const attentionCount = attentionEntries.length;
   const draftReady = Boolean(payload);
-  const generateDisabled = !sessionId || loading || submitting || finalizing || !draftReady;
+  const revisionCount = Math.max(1, Number(payload?.revision_count) || 1);
+  const canUndo = draftReady && revisionCount > 1;
+  const generateDisabled = !sessionId || loading || submitting || finalizing || undoing || !draftReady;
   const generateButtonLabel = loading
     ? "Loading Draft..."
     : submitting
       ? "Applying Updates..."
       : finalizing
         ? "Generating..."
-        : "Generate Dashboard";
+        : undoing
+          ? "Restoring Revision..."
+          : "Generate Dashboard";
   const reviewQueueLabel = loading
     ? "Loading draft..."
     : visuals.length
@@ -363,12 +394,12 @@ export function UpdatePage() {
               <span>{loading ? "checking confidence" : `of ${visuals.length} need attention`}</span>
             </div>
             <div className="review-priority__switch" aria-label="Review focus">
-              <button aria-pressed={reviewFocus === "all"} disabled={!draftReady || loading} onClick={() => setReviewFocus("all")} type="button">
+              <button aria-pressed={reviewFocus === "all"} disabled={!draftReady || loading || undoing} onClick={() => setReviewFocus("all")} type="button">
                 All visuals
               </button>
               <button
                 aria-pressed={reviewFocus === "attention"}
-                disabled={!draftReady || loading || !attentionCount}
+                disabled={!draftReady || loading || undoing || !attentionCount}
                 onClick={() => setReviewFocus("attention")}
                 type="button"
               >
@@ -393,13 +424,13 @@ export function UpdatePage() {
             <label htmlFor="dashboard-direction-prompt">Instruction</label>
             <div className="dashboard-directive__composer">
               <input
-                disabled={!draftReady || loading || submitting}
+                disabled={!draftReady || loading || submitting || undoing}
                 id="dashboard-direction-prompt"
                 onChange={(event) => setDashboardPrompt(event.target.value)}
                 placeholder='e.g., "Use tabs layout" or "Switch to dark theme"'
                 value={dashboardPrompt}
               />
-              <button className="button button--primary" disabled={!draftReady || loading || submitting || !dashboardPrompt.trim()} type="submit">
+              <button className="button button--primary" disabled={!draftReady || loading || submitting || undoing || !dashboardPrompt.trim()} type="submit">
                 {submitting ? "Applying..." : "Apply to dashboard"}
               </button>
             </div>
@@ -407,7 +438,7 @@ export function UpdatePage() {
               <span>Try</span>
               {dashboardSuggestions.map((suggestion) => (
                 <button
-                  disabled={!draftReady || loading || submitting}
+                  disabled={!draftReady || loading || submitting || undoing}
                   key={suggestion}
                   onClick={() => setDashboardPrompt(suggestion)}
                   type="button"
@@ -424,6 +455,32 @@ export function UpdatePage() {
           </form>
         </section>
 
+        <section className="revision-safety" aria-labelledby="revision-safety-title">
+          <div className="revision-safety__intro">
+            <span className="revision-safety__icon" aria-hidden="true">
+              <Icon name="review" size={18} />
+            </span>
+            <div>
+              <span className="revision-safety__eyebrow">Revision safety</span>
+              <h2 id="revision-safety-title">Safe to experiment</h2>
+              <p>Every AI refinement becomes a restorable dashboard revision.</p>
+            </div>
+          </div>
+          <div className="revision-safety__controls">
+            <span className="revision-safety__count">Revision {loading ? "—" : revisionCount}</span>
+            <button
+              className="button button--secondary"
+              disabled={!canUndo || loading || submitting || finalizing || undoing}
+              onClick={handleUndoDashboardUpdate}
+              type="button"
+            >
+              <Icon name="review" size={15} />
+              {undoing ? "Restoring..." : canUndo ? "Undo last AI change" : "No AI changes to undo"}
+            </button>
+          </div>
+          {revisionNotice ? <p aria-live="polite" className="revision-safety__status">{revisionNotice}</p> : null}
+        </section>
+
         <div className={`plan-card-list plan-card-list--canvas${reviewFocus === "attention" ? " plan-card-list--attention" : ""}`}>
           {visibleEntries.length ? (
             visibleEntries.map(({ figure, index, visual }) => (
@@ -434,7 +491,7 @@ export function UpdatePage() {
                 key={visual.id || `${visual.title || "visual"}-${index}`}
                 onUpdate={applyChartUpdate}
                 priority={reviewFocus === "all" && index === 0 ? "primary" : "secondary"}
-                updating={submitting}
+                updating={submitting || undoing}
               />
             ))
           ) : (

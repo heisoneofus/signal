@@ -226,6 +226,24 @@ def create_app(root_dir: Path | None = None) -> FastAPI:
             dashboard_spec=result.dashboard_spec.model_dump(),
             figures=result.figures,
             session_status=result.session_status,
+            revision_count=result.revision_count,
+            artifacts=result.artifacts,
+        )
+
+    @app.post("/sessions/{session_id}/undo", response_model=UpdateResponse)
+    async def undo_session_update(session_id: str) -> UpdateResponse:
+        try:
+            result = service.undo_session_update(session_id=session_id)
+        except FileNotFoundError as exc:
+            raise ApiError("session_not_found", f"Session '{session_id}' was not found.", 404, str(exc)) from exc
+        except ValueError as exc:
+            raise ApiError("revision_not_available", str(exc), 409) from exc
+        return UpdateResponse(
+            session_id=result.session_id,
+            dashboard_spec=result.dashboard_spec.model_dump(),
+            figures=result.figures,
+            session_status=result.session_status,
+            revision_count=result.revision_count,
             artifacts=result.artifacts,
         )
 

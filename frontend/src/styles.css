@@ -2091,6 +2091,85 @@ code {
   font-size: 0.8rem;
 }
 
+.revision-safety {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  align-items: center;
+  gap: 12px 20px;
+  padding: 13px 15px;
+  border: 1px solid rgba(134, 239, 172, 0.22);
+  border-left: 3px solid rgba(134, 239, 172, 0.8);
+  border-radius: 8px;
+  background:
+    repeating-linear-gradient(135deg, transparent 0 12px, rgba(134, 239, 172, 0.018) 12px 13px),
+    #07111b;
+}
+
+.revision-safety__intro {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+}
+
+.revision-safety__icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(134, 239, 172, 0.3);
+  border-radius: 50%;
+  color: #86efac;
+  background: rgba(134, 239, 172, 0.07);
+}
+
+.revision-safety__eyebrow {
+  display: block;
+  color: #86efac;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.revision-safety h2 {
+  margin: 2px 0;
+  font-size: 0.96rem;
+}
+
+.revision-safety p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.revision-safety__controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.revision-safety__count {
+  padding: 7px 9px;
+  border: 1px solid rgba(134, 239, 172, 0.2);
+  border-radius: 6px;
+  color: #bbf7d0;
+  background: rgba(134, 239, 172, 0.05);
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.revision-safety p.revision-safety__status {
+  grid-column: 1 / -1;
+  padding-top: 10px;
+  border-top: 1px solid rgba(134, 239, 172, 0.14);
+  color: #bbf7d0;
+}
+
 .decision-strip {
   display: grid;
   gap: 6px;
@@ -2577,6 +2656,20 @@ code {
 
   .dashboard-directive__composer {
     grid-template-columns: 1fr;
+  }
+
+  .revision-safety {
+    grid-template-columns: 1fr;
+  }
+
+  .revision-safety__controls {
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-content: stretch;
+  }
+
+  .revision-safety__count {
+    text-align: center;
   }
 
   .product-updates-hero,

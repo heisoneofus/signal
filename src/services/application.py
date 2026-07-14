@@ -202,9 +202,9 @@ class ApplicationService:
             if local_path.exists():
                 self.artifact_store.upload_file(local_path, key, content_type=content_type)
 
-    def _ensure_local_artifact(self, key: str) -> Path:
+    def _ensure_local_artifact(self, key: str, *, refresh: bool = False) -> Path:
         local_path = self._artifact_local_path_from_key(key)
-        if local_path.exists():
+        if local_path.exists() and not refresh:
             return local_path
         if not self.remote_artifacts_enabled:
             return local_path
@@ -214,16 +214,16 @@ class ApplicationService:
         if not self.remote_artifacts_enabled:
             return
         keys_to_hydrate = [
-            artifacts.log_key(session_id),
-            artifacts.state_key(session_id),
-            artifacts.trace_key(session_id),
-            artifacts.dashboard_spec_key(session_id),
-            artifacts.figures_key(session_id),
-            artifacts.context_key(session_id),
+            (artifacts.log_key(session_id), True),
+            (artifacts.state_key(session_id), True),
+            (artifacts.trace_key(session_id), True),
+            (artifacts.dashboard_spec_key(session_id), True),
+            (artifacts.figures_key(session_id), True),
+            (artifacts.context_key(session_id), False),
         ]
-        for key in keys_to_hydrate:
+        for key, refresh in keys_to_hydrate:
             if self.artifact_store.exists(key):
-                self._ensure_local_artifact(key)
+                self._ensure_local_artifact(key, refresh=refresh)
         source_matches = self.artifact_store.list_keys(f"outputs/source_{session_id}")
         for key in source_matches:
             self._ensure_local_artifact(key)
@@ -259,7 +259,7 @@ class ApplicationService:
     def _hydrate_remote_session_summary(self, session_id: str, available_keys: set[str]) -> None:
         key = artifacts.state_key(session_id) if "state" in available_keys else artifacts.log_key(session_id)
         try:
-            self._ensure_local_artifact(key)
+            self._ensure_local_artifact(key, refresh=True)
         except FileNotFoundError:
             return
 

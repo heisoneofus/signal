@@ -541,3 +541,43 @@ def test_remote_session_list_uses_lightweight_limited_state_hydration(tmp_path: 
         "logs/session_20260623_063000_000000.state.json",
         "logs/session_20260622_063000_000000.state.json",
     ]
+
+
+def test_remote_session_hydration_refreshes_mutable_cached_artifacts(tmp_path: Path) -> None:
+    class TrackingRemoteStore(LocalArtifactStore):
+        is_remote = True
+
+        def __init__(self, root_dir: Path) -> None:
+            super().__init__(root_dir=root_dir)
+            self.materialized_keys: list[str] = []
+
+        def materialize(self, key: str, *, destination: Path | None = None) -> Path:
+            self.materialized_keys.append(key)
+            return super().materialize(key, destination=destination)
+
+    session_id = "session_20260714_170000_000000"
+    remote_root = tmp_path / "remote"
+    local_root = tmp_path / "app"
+    remote_state_path = remote_root / "logs" / f"{session_id}.state.json"
+    local_state_path = local_root / "logs" / f"{session_id}.state.json"
+    remote_state_path.parent.mkdir(parents=True)
+    local_state_path.parent.mkdir(parents=True)
+
+    remote_state = SessionState(session_id=session_id)
+    remote_state.active_spec.title = "Remote revision"
+    remote_state_path.write_text(remote_state.model_dump_json(), encoding="utf-8")
+
+    stale_local_state = SessionState(session_id=session_id)
+    stale_local_state.active_spec.title = "Stale local revision"
+    local_state_path.write_text(stale_local_state.model_dump_json(), encoding="utf-8")
+
+    service = ApplicationService(root_dir=local_root)
+    store = TrackingRemoteStore(root_dir=remote_root)
+    service.artifact_store = store
+    service.remote_artifacts_enabled = True
+
+    service._hydrate_remote_session(session_id)
+
+    refreshed_state = SessionState.model_validate_json(local_state_path.read_text(encoding="utf-8"))
+    assert refreshed_state.active_spec.title == "Remote revision"
+    assert store.materialized_keys == [f"logs/{session_id}.state.json"]

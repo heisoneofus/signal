@@ -176,7 +176,14 @@ describe("frontend pages", () => {
         },
         dashboard_spec: {
           title: "Sales Overview",
-          visuals: [{ id: "visual_1", title: "Sales by Region", chart_type: "bar", layout_size: "wide" }],
+          visuals: [{
+            id: "visual_1",
+            title: "Sales by Region",
+            chart_type: "bar",
+            layout_size: "wide",
+            confidence: 0.84,
+            rationale: "A bar chart makes the regional comparison readable at a glance.",
+          }],
           filters: ["region"],
         },
         figures: [{ data: [{ x: ["EU", "US"], y: [10, 20] }], layout: { title: { text: "Sales by Region" } } }],
@@ -198,6 +205,12 @@ describe("frontend pages", () => {
     expect(screen.getByText(/primary metrics/i)).toBeInTheDocument();
     expect(screen.getByTestId("plotly-chart")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /region: eu/i })).toBeInTheDocument();
+    const readingNote = screen.getByText(/why this view/i).closest("details");
+    expect(readingNote).not.toHaveAttribute("open");
+    expect(screen.getByText(/84% confidence/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByText(/why this view/i));
+    expect(readingNote).toHaveAttribute("open");
+    expect(screen.getByText(/regional comparison readable at a glance/i)).toBeInTheDocument();
     expect(screen.queryByText(/last 7 days/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/\+12\.5%/i)).not.toBeInTheDocument();
   });

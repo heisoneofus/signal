@@ -250,6 +250,32 @@ function InsightPanel({ payload, open, onOpenChange }) {
   );
 }
 
+function ChartReadingNote({ visual }) {
+  const rationale = visual.rationale?.trim();
+  const hasConfidence = visual.confidence !== null && visual.confidence !== undefined && visual.confidence !== "";
+  const confidence = hasConfidence ? Number(visual.confidence) : Number.NaN;
+  const confidenceLabel = Number.isFinite(confidence)
+    ? `${Math.round(confidence <= 1 ? confidence * 100 : confidence)}% confidence`
+    : "";
+
+  if (!rationale) {
+    return null;
+  }
+
+  return (
+    <details className="chart-reading-note">
+      <summary>
+        <span className="chart-reading-note__label">
+          <Icon name="spark" size={14} />
+          Why this view?
+        </span>
+        {confidenceLabel ? <span className="chart-reading-note__confidence">{confidenceLabel}</span> : null}
+      </summary>
+      <p>{rationale}</p>
+    </details>
+  );
+}
+
 export function ResultsPage() {
   const { sessionId = "" } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -530,44 +556,47 @@ export function ResultsPage() {
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={() => dropVisual(index)}
                 >
-                  <div className="chart-heading">
-                    <div>
-                      <h2>{title}</h2>
-                      <p>{humanizeName(visual.chart_type || "Plotly")} - Cleaned and rendered</p>
+                  <div className="dashboard-chart__context">
+                    <div className="chart-heading">
+                      <div>
+                        <h2>{title}</h2>
+                        <p>{humanizeName(visual.chart_type || "Plotly")} - Cleaned and rendered</p>
+                      </div>
+                      {isPresentation ? null : <div className="chart-heading__actions">
+                        <button
+                          aria-label={`Drag to reorder ${title}`}
+                          className="icon-button icon-button--drag"
+                          draggable
+                          onDragEnd={() => setDraggedVisualId("")}
+                          onDragStart={(event) => {
+                            setDraggedVisualId(visual.id || "");
+                            event.dataTransfer.effectAllowed = "move";
+                          }}
+                          type="button"
+                        >
+                          <Icon name="grip" size={16} />
+                        </button>
+                        <button
+                          className="icon-button icon-button--up"
+                          disabled={index === 0}
+                          onClick={() => moveVisual(index, -1)}
+                          type="button"
+                          aria-label={`Move ${title} up`}
+                        >
+                          <Icon name="arrow" size={16} />
+                        </button>
+                        <button
+                          className="icon-button icon-button--down"
+                          disabled={index === visuals.length - 1}
+                          onClick={() => moveVisual(index, 1)}
+                          type="button"
+                          aria-label={`Move ${title} down`}
+                        >
+                          <Icon name="arrow" size={16} />
+                        </button>
+                      </div>}
                     </div>
-                    {isPresentation ? null : <div className="chart-heading__actions">
-                      <button
-                        aria-label={`Drag to reorder ${title}`}
-                        className="icon-button icon-button--drag"
-                        draggable
-                        onDragEnd={() => setDraggedVisualId("")}
-                        onDragStart={(event) => {
-                          setDraggedVisualId(visual.id || "");
-                          event.dataTransfer.effectAllowed = "move";
-                        }}
-                        type="button"
-                      >
-                        <Icon name="grip" size={16} />
-                      </button>
-                      <button
-                        className="icon-button icon-button--up"
-                        disabled={index === 0}
-                        onClick={() => moveVisual(index, -1)}
-                        type="button"
-                        aria-label={`Move ${title} up`}
-                      >
-                        <Icon name="arrow" size={16} />
-                      </button>
-                      <button
-                        className="icon-button icon-button--down"
-                        disabled={index === visuals.length - 1}
-                        onClick={() => moveVisual(index, 1)}
-                        type="button"
-                        aria-label={`Move ${title} down`}
-                      >
-                        <Icon name="arrow" size={16} />
-                      </button>
-                    </div>}
+                    <ChartReadingNote visual={visual} />
                   </div>
                   <PlotlyChart figure={figure} title={title} />
                 </article>

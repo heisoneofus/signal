@@ -1174,6 +1174,62 @@ code {
   font-size: 0.84rem;
 }
 
+.dashboard-chart__context {
+  display: grid;
+  gap: 10px;
+}
+
+.chart-reading-note {
+  border-left: 2px solid rgba(56, 189, 248, 0.62);
+  padding-left: 10px;
+  color: var(--muted);
+}
+
+.chart-reading-note summary {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.chart-reading-note summary::-webkit-details-marker {
+  display: none;
+}
+
+.chart-reading-note__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #b9e8ff;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.chart-reading-note__confidence {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.chart-reading-note p {
+  max-width: 76ch;
+  margin: 2px 0 8px;
+  color: #c7d3e6;
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.chart-reading-note[open] {
+  border-left-color: var(--cyan);
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.07), transparent 70%);
+}
+
 .icon-button {
   width: 40px;
   height: 40px;
@@ -2618,6 +2674,12 @@ code {
   .dashboard-chart {
     min-height: 430px;
     grid-template-rows: auto minmax(350px, 1fr);
+  }
+
+  .chart-reading-note summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .dashboard-chart--compact {

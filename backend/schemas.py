@@ -77,6 +77,9 @@ class UpdateResponse(BaseModel):
     session_status: str
     revision_count: int = 1
     artifacts: list[ArtifactDescriptor] = Field(default_factory=list)
+    changed: bool = True
+    changes: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class FiguresResponse(BaseModel):

@@ -2226,6 +2226,97 @@ code {
   color: #bbf7d0;
 }
 
+.refinement-receipt {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  padding: 14px 15px;
+  border: 1px solid rgba(134, 239, 172, 0.24);
+  border-left: 3px solid #86efac;
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(134, 239, 172, 0.07), transparent 48%),
+    #07111b;
+}
+
+.refinement-receipt--unchanged {
+  border-color: rgba(251, 191, 36, 0.24);
+  border-left-color: #fbbf24;
+  background:
+    repeating-linear-gradient(135deg, transparent 0 12px, rgba(251, 191, 36, 0.025) 12px 13px),
+    #121006;
+}
+
+.refinement-receipt__marker {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(134, 239, 172, 0.34);
+  border-radius: 8px;
+  color: #86efac;
+  background: rgba(134, 239, 172, 0.07);
+}
+
+.refinement-receipt--unchanged .refinement-receipt__marker {
+  border-color: rgba(251, 191, 36, 0.34);
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.07);
+}
+
+.refinement-receipt__body {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.refinement-receipt__eyebrow {
+  color: #86efac;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.refinement-receipt--unchanged .refinement-receipt__eyebrow {
+  color: #fbbf24;
+}
+
+.refinement-receipt__body > strong {
+  font-size: 0.95rem;
+}
+
+.refinement-receipt p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.refinement-receipt q {
+  color: var(--text);
+}
+
+.refinement-receipt__changes {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 0;
+  padding-left: 18px;
+  color: #d1fae5;
+  font-size: 0.8rem;
+}
+
+.refinement-receipt p.refinement-receipt__warning {
+  color: #fde68a;
+}
+
+.refinement-receipt p.refinement-receipt__hint {
+  color: #fcd34d;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+}
+
 .decision-strip {
   display: grid;
   gap: 6px;
@@ -2732,6 +2823,10 @@ code {
 
   .revision-safety__count {
     text-align: center;
+  }
+
+  .refinement-receipt {
+    grid-template-columns: 1fr;
   }
 
   .product-updates-hero,

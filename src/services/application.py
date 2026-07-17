@@ -15,7 +15,7 @@ from src.agents.orchestrator import Orchestrator, build_registry
 from src.agents.patcher import apply_dashboard_patch, parse_update_prompt
 from src.config import AppConfig, LLMConfig
 from src.logging.session import SessionLogger, init_session_logger, load_dashboard_spec, load_session_metadata, load_session_state
-from src.models import AnalysisReport, DashboardSpec, ExecutionTrace, SessionState
+from src.models import AnalysisReport, DashboardPatch, DashboardSpec, ExecutionTrace, SessionState
 from src.services.google_sheets import GoogleSheetsClient
 import src.services.artifacts as artifacts
 from src.storage import ArtifactStore, create_artifact_store
@@ -70,6 +70,9 @@ class UpdateResult:
     session_status: str
     revision_count: int
     artifacts: list[dict[str, str]]
+    changed: bool = True
+    changes: list[str] | None = None
+    warnings: list[str] | None = None
 
 
 @dataclass
@@ -80,6 +83,8 @@ class CliRunResult:
     analysis: AnalysisReport | None
     figures: list[dict[str, Any]]
     rendered_output: Path | None
+    update_changed: bool | None = None
+    update_patch: DashboardPatch | None = None
 
 
 def _read_description(path: Path | None) -> str | None:
@@ -739,6 +744,17 @@ class ApplicationService:
             session_status=cli_result.session_state.status,
             revision_count=len(cli_result.session_state.spec_versions),
             artifacts=self.list_artifacts(session_id, state=cli_result.session_state),
+            changed=bool(cli_result.update_changed),
+            changes=(
+                [
+                    operation.note
+                    for operation in (cli_result.update_patch.operations if cli_result.update_patch else [])
+                    if operation.note
+                ]
+                if cli_result.update_changed
+                else []
+            ),
+            warnings=list(cli_result.update_patch.warnings) if cli_result.update_patch else [],
         )
 
     def undo_session_update(self, *, session_id: str) -> UpdateResult:
@@ -773,6 +789,9 @@ class ApplicationService:
             session_status=state.status,
             revision_count=len(state.spec_versions),
             artifacts=self.list_artifacts(session_id, state=state),
+            changed=True,
+            changes=["Restored the previous dashboard revision."],
+            warnings=[],
         )
 
     def patch_session(
@@ -903,12 +922,21 @@ class ApplicationService:
             session_state.spec_versions[-1] = current_spec
         else:
             session_state.spec_versions.append(current_spec)
-        patch = parse_update_prompt(prompt, session_state.active_spec.model_copy(deep=True))
-        updated_spec = apply_dashboard_patch(session_state.active_spec.model_copy(deep=True), patch)
-        session_state.active_spec = updated_spec
-        session_state.spec_versions.append(updated_spec.model_copy(deep=True))
+        patch = parse_update_prompt(prompt, current_spec)
+        updated_spec = apply_dashboard_patch(current_spec, patch) if patch.operations else current_spec
+        changed = updated_spec.model_dump(exclude={"approval_status"}) != current_spec.model_dump(
+            exclude={"approval_status"}
+        )
+        if changed:
+            session_state.active_spec = updated_spec
+            session_state.spec_versions.append(updated_spec.model_copy(deep=True))
+            session_state.decisions.append(f"Update prompt applied: {prompt}")
+        else:
+            session_state.active_spec = current_spec
+            if not patch.warnings:
+                patch.warnings.append("The request matched the current dashboard, so no revision was created.")
+            session_state.decisions.append(f"Update prompt made no dashboard changes: {prompt}")
         session_state.pending_patch = patch
-        session_state.decisions.append(f"Update prompt applied: {prompt}")
 
         resolved_data_path = data_path or self._resolve_update_data_path(session_state)
         df = _load_for_analysis(resolved_data_path, self.config.sample_rows)
@@ -929,7 +957,7 @@ class ApplicationService:
 
         session_logger.log_json("Update Prompt", {"prompt": prompt})
         session_logger.log_json("Dashboard Patch", patch.model_dump())
-        session_logger.log_json("Updated Dashboard Spec", updated_spec.model_dump())
+        session_logger.log_json("Updated Dashboard Spec", session_state.active_spec.model_dump())
         self._persist_session_artifacts(session_logger, session_state, figures=figures)
         self._sync_session_artifacts(session_id, session_state)
 
@@ -940,6 +968,8 @@ class ApplicationService:
             analysis=session_state.analysis,
             figures=figures,
             rendered_output=rendered_output,
+            update_changed=changed,
+            update_patch=patch,
         )
 
     def list_sessions(self, *, limit: int = 25) -> list[SessionSummary]:

@@ -360,7 +360,7 @@ describe("frontend pages", () => {
         }),
       );
     });
-    expect(await screen.findByText(/scatter/i)).toBeInTheDocument();
+    expect(await screen.findByText(/scatter - confidence pending/i)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /generate dashboard/i }));
     expect(navigateMock).toHaveBeenCalledWith("/results/session_123");
   });
@@ -392,6 +392,10 @@ describe("frontend pages", () => {
         json: async () => ({
           session_id: "session_123",
           session_status: "reviewed",
+          revision_count: 2,
+          changed: true,
+          changes: ["Switch layout to `tabs`."],
+          warnings: [],
           dashboard_spec: {
             title: "Sales Overview",
             layout: "tabs",
@@ -425,8 +429,75 @@ describe("frontend pages", () => {
         }),
       );
     });
-    expect(await screen.findByRole("status")).toHaveTextContent(/applied: use tabs layout/i);
+    const receipt = await screen.findByRole("status");
+    expect(receipt).toHaveTextContent(/1 dashboard change applied/i);
+    expect(receipt).toHaveTextContent(/switch layout to `tabs`/i);
+    expect(receipt).toHaveTextContent(/use tabs layout/i);
     expect(screen.getByRole("button", { name: /use sections layout/i })).toBeInTheDocument();
+  });
+
+  it("keeps an unsupported refinement editable and explains that no revision was created", async () => {
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ items: [{ session_id: "session_123", title: "Sales Overview", status: "reviewed" }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          session_id: "session_123",
+          status: "reviewed",
+          revision_count: 1,
+          dataset_profile: { row_count: 2, column_count: 2, quality_score: 100 },
+          dashboard_spec: {
+            title: "Sales Overview",
+            layout: "grid",
+            theme: "light",
+            visuals: [{ id: "visual_1", chart_type: "bar", title: "Sales by Region" }],
+            filters: [],
+          },
+          figures: [{ data: [{ x: ["EU", "US"], y: [10, 20] }], layout: {} }],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          session_id: "session_123",
+          session_status: "reviewed",
+          revision_count: 1,
+          changed: false,
+          changes: [],
+          warnings: ["No structured patch operation could be inferred; keeping the current dashboard spec."],
+          dashboard_spec: {
+            title: "Sales Overview",
+            layout: "grid",
+            theme: "light",
+            visuals: [{ id: "visual_1", chart_type: "bar", title: "Sales by Region" }],
+            filters: [],
+          },
+          figures: [{ data: [{ x: ["EU", "US"], y: [10, 20] }], layout: {} }],
+        }),
+      });
+
+    render(
+      <MemoryRouter future={routerFuture} initialEntries={["/update/session_123"]}>
+        <Routes>
+          <Route path="/update/:sessionId" element={<UpdatePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const input = await screen.findByLabelText(/^instruction$/i);
+    await userEvent.type(input, "Make the dashboard more insightful");
+    await userEvent.click(screen.getByRole("button", { name: /apply to dashboard/i }));
+
+    const receipt = await screen.findByRole("status");
+    expect(receipt).toHaveTextContent(/no dashboard change made/i);
+    expect(receipt).toHaveTextContent(/no structured patch operation/i);
+    expect(receipt).toHaveTextContent(/try naming a chart, chart type, layout, theme, filter, or axis/i);
+    expect(input).toHaveValue("Make the dashboard more insightful");
+    expect(screen.getByText(/revision 1/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /no ai changes to undo/i })).toBeDisabled();
   });
 
   it("restores the previous dashboard revision after an AI refinement", async () => {

@@ -42,6 +42,48 @@ function rememberSession(sessionId) {
   }
 }
 
+function RefinementReceipt({ receipt }) {
+  if (!receipt) {
+    return null;
+  }
+
+  const changes = receipt.changes || [];
+  const warnings = receipt.warnings || [];
+  const title = receipt.changed
+    ? changes.length
+      ? `${changes.length} dashboard change${changes.length === 1 ? "" : "s"} applied`
+      : "Dashboard change applied"
+    : "No dashboard change made";
+
+  return (
+    <section
+      aria-live="polite"
+      className={`refinement-receipt refinement-receipt--${receipt.changed ? "applied" : "unchanged"}`}
+      role="status"
+    >
+      <span className="refinement-receipt__marker" aria-hidden="true">
+        <Icon name={receipt.changed ? "check" : "signal"} size={18} />
+      </span>
+      <div className="refinement-receipt__body">
+        <span className="refinement-receipt__eyebrow">Refinement receipt</span>
+        <strong>{title}</strong>
+        <p>
+          Signal interpreted: <q>{receipt.prompt}</q>
+        </p>
+        {changes.length ? (
+          <ul className="refinement-receipt__changes">
+            {changes.map((change) => <li key={change}>{change}</li>)}
+          </ul>
+        ) : null}
+        {warnings.map((warning) => <p className="refinement-receipt__warning" key={warning}>{warning}</p>)}
+        {!receipt.changed ? (
+          <p className="refinement-receipt__hint">Try naming a chart, chart type, layout, theme, filter, or axis.</p>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 function VisualReviewCard({ visual, figure, index, onUpdate, updating, priority = "secondary" }) {
   const [prompt, setPrompt] = useState("");
   const title = visual.title || `Visual ${index + 1}`;
@@ -51,8 +93,10 @@ function VisualReviewCard({ visual, figure, index, onUpdate, updating, priority 
     if (!prompt.trim()) {
       return;
     }
-    await onUpdate(`For ${title}, ${prompt.trim()}`);
-    setPrompt("");
+    const result = await onUpdate(`For ${title}, ${prompt.trim()}`);
+    if (result?.changed) {
+      setPrompt("");
+    }
   }
 
   return (
@@ -113,7 +157,7 @@ export function UpdatePage() {
   const [finalizing, setFinalizing] = useState(false);
   const [undoing, setUndoing] = useState(false);
   const [dashboardPrompt, setDashboardPrompt] = useState("");
-  const [appliedDashboardPrompt, setAppliedDashboardPrompt] = useState("");
+  const [refinementReceipt, setRefinementReceipt] = useState(null);
   const [revisionNotice, setRevisionNotice] = useState("");
   const [reviewFocus, setReviewFocus] = useState("all");
   const [error, setError] = useState("");
@@ -155,6 +199,7 @@ export function UpdatePage() {
       setLoading(true);
       setError("");
       setRevisionNotice("");
+      setRefinementReceipt(null);
       try {
         const detail = await fetchSession(targetSessionId);
         if (active) {
@@ -211,16 +256,24 @@ export function UpdatePage() {
     setError("");
     try {
       const updated = await updateDashboard(sessionId.trim(), prompt);
+      const changed = updated.changed !== false;
+      const normalizedUpdate = { ...updated, changed };
       setPayload((current) => ({
         ...(current || {}),
         ...updated,
         status: updated.session_status,
       }));
-      setRevisionNotice(`Saved as revision ${updated.revision_count || 1}. You can safely undo this AI change.`);
-      return true;
+      setRefinementReceipt({
+        changed,
+        changes: updated.changes || [],
+        prompt,
+        warnings: updated.warnings || [],
+      });
+      setRevisionNotice(changed ? `Saved as revision ${updated.revision_count || 1}. You can safely undo this AI change.` : "");
+      return normalizedUpdate;
     } catch (submissionError) {
       setError(submissionError.message || "Unable to apply the dashboard update.");
-      return false;
+      return null;
     } finally {
       setSubmitting(false);
     }
@@ -232,9 +285,8 @@ export function UpdatePage() {
     if (!prompt) {
       return;
     }
-    const applied = await applyChartUpdate(prompt);
-    if (applied) {
-      setAppliedDashboardPrompt(prompt);
+    const result = await applyChartUpdate(prompt);
+    if (result?.changed) {
       setDashboardPrompt("");
     }
   }
@@ -271,7 +323,7 @@ export function UpdatePage() {
         ...restored,
         status: restored.session_status,
       }));
-      setAppliedDashboardPrompt("");
+      setRefinementReceipt(null);
       setRevisionNotice(`Restored revision ${restored.revision_count || 1}. The latest AI change was removed.`);
     } catch (undoError) {
       setError(undoError.message || "Unable to restore the previous dashboard revision.");
@@ -447,11 +499,6 @@ export function UpdatePage() {
                 </button>
               ))}
             </div>
-            {appliedDashboardPrompt ? (
-              <p className="dashboard-directive__status" role="status">
-                <Icon name="check" size={15} /> Applied: {appliedDashboardPrompt}
-              </p>
-            ) : null}
           </form>
         </section>
 
@@ -480,6 +527,8 @@ export function UpdatePage() {
           </div>
           {revisionNotice ? <p aria-live="polite" className="revision-safety__status">{revisionNotice}</p> : null}
         </section>
+
+        <RefinementReceipt receipt={refinementReceipt} />
 
         <div className={`plan-card-list plan-card-list--canvas${reviewFocus === "attention" ? " plan-card-list--attention" : ""}`}>
           {visibleEntries.length ? (

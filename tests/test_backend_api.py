@@ -140,6 +140,9 @@ def test_generate_and_update_endpoints_return_plotly_json(tmp_path: Path) -> Non
     updated = update.json()
     assert updated["session_id"] == session_id
     assert updated["figures"]
+    assert updated["changed"] is True
+    assert updated["changes"]
+    assert updated["warnings"] == []
     assert any(visual["chart_type"] == "scatter" for visual in updated["dashboard_spec"]["visuals"])
     assert "region" in updated["dashboard_spec"]["filters"]
 
@@ -186,6 +189,41 @@ def test_latest_dashboard_refinement_can_be_undone(tmp_path: Path) -> None:
     unavailable = client.post(f"/sessions/{session_id}/undo")
     assert unavailable.status_code == 409
     assert unavailable.json()["code"] == "revision_not_available"
+
+
+def test_unsupported_dashboard_refinement_does_not_create_fake_revision(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+
+    generated = client.post(
+        "/generate",
+        files={"dataset": ("sales.csv", io.BytesIO(b"region,sales\nEU,10\nUS,20\n"), "text/csv")},
+        data={"context_text": "Show sales by region."},
+    ).json()
+    session_id = generated["session_id"]
+
+    update = client.post(
+        "/update",
+        json={"session_id": session_id, "prompt": "Make the dashboard more insightful"},
+    )
+
+    assert update.status_code == 200
+    unchanged = update.json()
+    assert unchanged["changed"] is False
+    assert unchanged["changes"] == []
+    assert unchanged["revision_count"] == 1
+    assert unchanged["dashboard_spec"] == generated["dashboard_spec"]
+    assert "No structured patch operation" in unchanged["warnings"][0]
+    assert client.get(f"/sessions/{session_id}").json()["revision_count"] == 1
+
+    already_current = client.post(
+        "/update",
+        json={"session_id": session_id, "prompt": f"Use {generated['dashboard_spec']['layout']} layout"},
+    ).json()
+    assert already_current["changed"] is False
+    assert already_current["changes"] == []
+    assert already_current["revision_count"] == 1
+    assert "matched the current dashboard" in already_current["warnings"][0]
+    assert client.post(f"/sessions/{session_id}/undo").status_code == 409
 
 
 def test_session_detail_includes_dataset_profile_and_filter_options(tmp_path: Path) -> None:

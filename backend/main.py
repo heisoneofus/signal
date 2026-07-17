@@ -228,6 +228,9 @@ def create_app(root_dir: Path | None = None) -> FastAPI:
             session_status=result.session_status,
             revision_count=result.revision_count,
             artifacts=result.artifacts,
+            changed=result.changed,
+            changes=result.changes or [],
+            warnings=result.warnings or [],
         )
 
     @app.post("/sessions/{session_id}/undo", response_model=UpdateResponse)
@@ -245,6 +248,9 @@ def create_app(root_dir: Path | None = None) -> FastAPI:
             session_status=result.session_status,
             revision_count=result.revision_count,
             artifacts=result.artifacts,
+            changed=result.changed,
+            changes=result.changes or [],
+            warnings=result.warnings or [],
         )
 
     @app.patch("/sessions/{session_id}", response_model=SessionDetailResponse)

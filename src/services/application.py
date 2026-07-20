@@ -851,7 +851,17 @@ class ApplicationService:
 
         session_logger = SessionLogger(path=artifacts.log_path(self.config, session_id))
         self._persist_session_artifacts(session_logger, state, figures=current_figures)
-        return self.get_session_detail(session_id)
+        return SessionDetail(
+            session_id=session_id,
+            status=state.status,
+            pinned=state.pinned,
+            revision_count=len(state.spec_versions),
+            analysis=state.analysis.model_dump() if state.analysis else None,
+            dashboard_spec=state.active_spec.model_dump(),
+            figures=current_figures,
+            artifacts=self.list_artifacts(session_id, state=state),
+            dataset_profile=self._dataset_profile(state),
+        )
 
     def render_session_figures(self, *, session_id: str, filters: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         self._hydrate_remote_session(session_id)

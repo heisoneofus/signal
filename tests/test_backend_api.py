@@ -257,8 +257,9 @@ def test_session_detail_includes_dataset_profile_and_filter_options(tmp_path: Pa
     assert profile["filter_options"]["region"] == ["EU", "US"]
 
 
-def test_session_patch_persists_title_visual_order_and_pin(tmp_path: Path) -> None:
-    client = _client(tmp_path)
+def test_session_patch_persists_title_visual_order_and_pin(tmp_path: Path, monkeypatch) -> None:
+    app = create_app(root_dir=tmp_path)
+    client = TestClient(app)
 
     generate = client.post(
         "/generate",
@@ -272,6 +273,14 @@ def test_session_patch_persists_title_visual_order_and_pin(tmp_path: Path) -> No
     visual_ids = [visual["id"] for visual in generated["dashboard_spec"]["visuals"]]
     assert len(visual_ids) >= 2
 
+    service = app.state.service._instance
+    assert service is not None
+
+    def fail_on_post_write_rehydration(*args, **kwargs):
+        raise AssertionError("PATCH must return the state it persisted without re-hydrating remote artifacts.")
+
+    monkeypatch.setattr(service, "get_session_detail", fail_on_post_write_rehydration)
+
     patch = client.patch(
         f"/sessions/{session_id}",
         json={"title": "Renamed Sales Dashboard", "visual_order": list(reversed(visual_ids)), "pinned": True},
@@ -282,6 +291,8 @@ def test_session_patch_persists_title_visual_order_and_pin(tmp_path: Path) -> No
     assert patched["dashboard_spec"]["title"] == "Renamed Sales Dashboard"
     assert [visual["id"] for visual in patched["dashboard_spec"]["visuals"]] == list(reversed(visual_ids))
     assert patched["pinned"] is True
+
+    monkeypatch.undo()
 
     detail = client.get(f"/sessions/{session_id}")
     assert detail.status_code == 200

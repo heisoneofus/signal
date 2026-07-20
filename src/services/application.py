@@ -38,12 +38,14 @@ class SessionSummary:
     title: str
     created_at: str
     updated_at: str
+    pinned: bool = False
 
 
 @dataclass
 class SessionDetail:
     session_id: str
     status: str
+    pinned: bool
     revision_count: int
     analysis: dict[str, Any] | None
     dashboard_spec: dict[str, Any]
@@ -800,6 +802,7 @@ class ApplicationService:
         session_id: str,
         title: str | None = None,
         visual_order: list[str] | None = None,
+        pinned: bool | None = None,
     ) -> SessionDetail:
         self._hydrate_remote_session(session_id)
         state = self._load_state(session_id)
@@ -832,6 +835,9 @@ class ApplicationService:
                     for visual in reordered
                     if visual.id in figure_by_visual_id
                 ]
+
+        if pinned is not None:
+            state.pinned = pinned
 
         state.active_spec = spec
         if state.plan is not None:
@@ -991,6 +997,7 @@ class ApplicationService:
                     title=state.active_spec.title,
                     created_at=state.created_at,
                     updated_at=state.updated_at,
+                    pinned=state.pinned,
                 )
             )
             seen.add(session_id)
@@ -1014,6 +1021,7 @@ class ApplicationService:
                     title=title,
                     created_at=str(log_file.stat().st_ctime),
                     updated_at=str(log_file.stat().st_mtime),
+                    pinned=False,
                 )
             )
         return sorted(summaries, key=lambda item: self._sort_timestamp(item.created_at), reverse=True)[:limit]
@@ -1027,6 +1035,7 @@ class ApplicationService:
         return SessionDetail(
             session_id=session_id,
             status=state.status if state else "unknown",
+            pinned=state.pinned if state else False,
             revision_count=len(state.spec_versions) if state else 0,
             analysis=state.analysis.model_dump() if state and state.analysis else None,
             dashboard_spec=detail_spec,

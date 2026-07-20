@@ -1026,4 +1026,56 @@ describe("frontend pages", () => {
     await userEvent.click(screen.getByRole("button", { name: /clear search/i }));
     expect(screen.getByRole("heading", { name: /support health/i })).toBeInTheDocument();
   });
+
+  it("pins a dashboard and keeps it above newer sessions", async () => {
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          items: [
+            { session_id: "session_new", title: "New Dashboard", status: "reviewed", created_at: "2026-07-20T08:00:00Z", pinned: false },
+            { session_id: "session_keep", title: "Keep Close", status: "reviewed", created_at: "2026-07-10T08:00:00Z", pinned: false },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          session_id: "session_keep",
+          status: "reviewed",
+          pinned: true,
+          dashboard_spec: { title: "Keep Close", visuals: [], filters: [] },
+          figures: [],
+          artifacts: [],
+          dataset_profile: {},
+        }),
+      });
+
+    render(
+      <MemoryRouter future={routerFuture} initialEntries={["/sessions"]}>
+        <Routes>
+          <Route path="/sessions" element={<SessionsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: /pin keep close/i }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenLastCalledWith(
+        expect.stringContaining("/sessions/session_keep"),
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ pinned: true }),
+        }),
+      );
+    });
+    expect(screen.getByText(/1 pinned/i)).toBeInTheDocument();
+    expect(screen.getByText(/pinned dashboard/i)).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual([
+      "Keep Close",
+      "New Dashboard",
+    ]);
+    expect(screen.getByRole("button", { name: /unpin keep close/i })).toHaveAttribute("aria-pressed", "true");
+  });
 });

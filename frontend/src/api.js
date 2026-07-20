@@ -172,8 +172,9 @@ export async function fetchSession(sessionId) {
   return apiFetch(`/sessions/${sessionId}`);
 }
 
-export async function fetchSessions() {
-  return apiFetch("/sessions");
+export async function fetchSessions(limit) {
+  const query = Number.isInteger(limit) ? `?limit=${limit}` : "";
+  return apiFetch(`/sessions${query}`);
 }
 
 export async function patchSession(sessionId, patch) {

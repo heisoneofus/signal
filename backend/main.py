@@ -260,6 +260,7 @@ def create_app(root_dir: Path | None = None) -> FastAPI:
                 session_id=session_id,
                 title=payload.title,
                 visual_order=payload.visual_order,
+                pinned=payload.pinned,
             )
         except FileNotFoundError as exc:
             raise ApiError("session_not_found", f"Session '{session_id}' was not found.", 404, str(exc)) from exc

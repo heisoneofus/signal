@@ -164,6 +164,7 @@ class SessionState(BaseModel):
     session_id: str
     created_at: str = Field(default_factory=_utc_now)
     updated_at: str = Field(default_factory=_utc_now)
+    pinned: bool = False
     status: Literal["draft", "planned", "approved", "executed", "reviewed", "failed"] = "draft"
     data_path: str = ""
     description_path: str = ""

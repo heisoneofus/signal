@@ -27,7 +27,7 @@ export function SessionsPage() {
       setLoading(true);
       setError("");
       try {
-        const payload = await fetchSessions();
+        const payload = await fetchSessions(100);
         if (active) {
           setItems(payload.items || []);
         }
@@ -49,7 +49,12 @@ export function SessionsPage() {
   }, []);
 
   const sortedItems = useMemo(() => {
-    return [...items].sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime());
+    return [...items].sort((left, right) => {
+      if (Boolean(left.pinned) !== Boolean(right.pinned)) {
+        return left.pinned ? -1 : 1;
+      }
+      return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+    });
   }, [items]);
 
   const filteredItems = useMemo(() => {
@@ -92,6 +97,25 @@ export function SessionsPage() {
     }
   }
 
+  async function togglePinned(item) {
+    setSaving(true);
+    setError("");
+    try {
+      const detail = await patchSession(item.session_id, { pinned: !item.pinned });
+      setItems((current) =>
+        current.map((candidate) =>
+          candidate.session_id === item.session_id ? { ...candidate, pinned: detail.pinned } : candidate,
+        ),
+      );
+    } catch (saveError) {
+      setError(saveError.message || "Unable to update this dashboard pin.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const pinnedCount = items.filter((item) => item.pinned).length;
+
   return (
     <section className="panel">
       <div className="panel__header">
@@ -122,6 +146,7 @@ export function SessionsPage() {
           </label>
           <p aria-live="polite">
             {query.trim() ? `${filteredItems.length} of ${sortedItems.length} sessions` : `${sortedItems.length} saved sessions`}
+            {pinnedCount ? ` · ${pinnedCount} pinned` : ""}
           </p>
         </div>
       ) : null}
@@ -137,9 +162,12 @@ export function SessionsPage() {
 
       <div className="session-list">
         {filteredItems.map((item) => (
-          <article className="session-card" key={item.session_id}>
+          <article className={`session-card${item.pinned ? " session-card--pinned" : ""}`} key={item.session_id}>
             <div>
-              <p className="session-card__status">{item.status}</p>
+              <div className="session-card__signals">
+                <p className="session-card__status">{item.status}</p>
+                {item.pinned ? <p className="session-card__pin-label">Pinned dashboard</p> : null}
+              </div>
               {editingSessionId === item.session_id ? (
                 <label className="field field--inline-edit">
                   <span>Dashboard Name</span>
@@ -155,6 +183,16 @@ export function SessionsPage() {
               <p className="session-card__meta">{formatCreatedAt(item.created_at)} - {item.session_id}</p>
             </div>
             <div className="session-card__actions">
+              <button
+                aria-label={`${item.pinned ? "Unpin" : "Pin"} ${item.title}`}
+                aria-pressed={Boolean(item.pinned)}
+                className={`button button--ghost session-pin${item.pinned ? " session-pin--active" : ""}`}
+                disabled={saving}
+                onClick={() => togglePinned(item)}
+                type="button"
+              >
+                {item.pinned ? "Pinned" : "Pin"}
+              </button>
               {editingSessionId === item.session_id ? (
                 <button className="button button--secondary" disabled={saving} onClick={() => saveRename(item.session_id)} type="button">
                   Save Dashboard Name

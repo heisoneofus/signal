@@ -32,6 +32,7 @@ class UpdateRequest(BaseModel):
 class SessionPatchRequest(BaseModel):
     title: str | None = None
     visual_order: list[str] | None = None
+    pinned: bool | None = None
 
 
 class FigureFilterRequest(BaseModel):
@@ -93,6 +94,7 @@ class SessionSummaryResponse(BaseModel):
     title: str
     created_at: str
     updated_at: str
+    pinned: bool = False
 
 
 class SessionsListResponse(BaseModel):
@@ -102,6 +104,7 @@ class SessionsListResponse(BaseModel):
 class SessionDetailResponse(BaseModel):
     session_id: str
     status: str
+    pinned: bool = False
     revision_count: int = 1
     analysis: dict[str, Any] | None = None
     dashboard_spec: dict[str, Any]

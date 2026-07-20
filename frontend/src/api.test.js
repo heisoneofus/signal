@@ -8,6 +8,7 @@ import {
   runGoogleSheetDataset,
   selectUploadStrategy,
   shouldUseStoredUploads,
+  undoDashboardUpdate,
 } from "./api";
 
 describe("api helpers", () => {
@@ -40,6 +41,28 @@ describe("api helpers", () => {
     });
 
     await expect(apiFetch("/missing")).rejects.toThrow("Not Found");
+  });
+
+  it("retries undo while the latest remote revision is still converging", async () => {
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        headers: { get: () => "application/json" },
+        json: async () => ({ code: "revision_not_available", message: "No previous dashboard revision is available." }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: { get: () => "application/json" },
+        json: async () => ({ session_id: "session_123", revision_count: 1 }),
+      });
+
+    const restored = await undoDashboardUpdate("session_123", { retryDelays: [0] });
+
+    expect(restored.revision_count).toBe(1);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
   it("falls back to update mode if the session finalization route is unavailable", async () => {

@@ -219,8 +219,27 @@ export async function updateDashboard(sessionId, prompt) {
   });
 }
 
-export async function undoDashboardUpdate(sessionId) {
-  return apiFetch(`/sessions/${sessionId}/undo`, {
-    method: "POST",
-  });
+const UNDO_RETRY_DELAYS_MS = [1_000, 3_000, 7_000, 15_000, 30_000];
+
+function isTransientRevisionUnavailable(error) {
+  return error?.status === 409 && error?.payload?.code === "revision_not_available";
+}
+
+export async function undoDashboardUpdate(
+  sessionId,
+  { retryDelays = UNDO_RETRY_DELAYS_MS } = {},
+) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await apiFetch(`/sessions/${sessionId}/undo`, {
+        method: "POST",
+      });
+    } catch (error) {
+      const retryDelay = retryDelays[attempt];
+      if (!isTransientRevisionUnavailable(error) || retryDelay === undefined) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, retryDelay));
+    }
+  }
 }
